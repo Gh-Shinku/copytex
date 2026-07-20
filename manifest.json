@@ -8,7 +8,8 @@
     "service_worker": "src/background.js"
   },
   "action": {
-    "default_title": "CopyTeX for ChatGPT"
+    "default_title": "CopyTeX for ChatGPT",
+    "default_popup": "src/popup.html"
   },
   "content_scripts": [
     {

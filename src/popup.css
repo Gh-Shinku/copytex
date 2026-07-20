@@ -1,0 +1,105 @@
+:root {
+  color-scheme: light dark;
+  --copytex-bg: #ffffff;
+  --copytex-surface: #f7f7f8;
+  --copytex-surface-hover: #ececf1;
+  --copytex-text: #0d0d0d;
+  --copytex-muted: #6b6b6b;
+  --copytex-border: rgba(13, 13, 13, 0.12);
+  --copytex-accent: #10a37f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --copytex-bg: #212121;
+    --copytex-surface: #2f2f2f;
+    --copytex-surface-hover: #3a3a3a;
+    --copytex-text: #ececec;
+    --copytex-muted: #b4b4b4;
+    --copytex-border: rgba(255, 255, 255, 0.14);
+  }
+}
+
+body {
+  width: 284px;
+  margin: 0;
+  background: var(--copytex-bg);
+  color: var(--copytex-text);
+  font: 13px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+}
+
+.copytex-popup {
+  box-sizing: border-box;
+  padding: 14px;
+}
+
+.copytex-header {
+  margin-bottom: 12px;
+}
+
+.copytex-header h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.copytex-section {
+  display: grid;
+  gap: 10px;
+}
+
+.copytex-section-header h2 {
+  margin: 0 0 3px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.copytex-section-header p {
+  margin: 0;
+  color: var(--copytex-muted);
+  font-size: 12px;
+}
+
+.copytex-options {
+  display: grid;
+  gap: 8px;
+}
+
+.copytex-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  box-sizing: border-box;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--copytex-border);
+  border-radius: 8px;
+  background: var(--copytex-surface);
+  cursor: pointer;
+}
+
+.copytex-option:hover {
+  background: var(--copytex-surface-hover);
+}
+
+.copytex-option input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--copytex-accent);
+}
+
+.copytex-option-text {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
+.copytex-status {
+  min-height: 17px;
+  margin-top: 10px;
+  color: var(--copytex-muted);
+  font-size: 12px;
+}
