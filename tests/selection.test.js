@@ -92,6 +92,10 @@ class NodeStub {
       );
     }
 
+    if (selector.startsWith(".")) {
+      return all.filter((node) => node.matches(selector));
+    }
+
     return [];
   }
 }
@@ -201,6 +205,34 @@ function deepseekSentenceFormula(latex) {
       el("span", { textContent: "向上的力 " }, [text("向上的力 ")]),
       inlineFormula(latex),
       el("span", { textContent: " 作用在支点上" }, [text(" 作用在支点上")])
+    ])
+  ]);
+}
+
+function zhihuFormula(latex, displayMode = false) {
+  return el("span", {
+    className: "ztext-math",
+    attributes: {
+      "data-eeimg": displayMode ? "2" : "1",
+      "data-tex": latex
+    }
+  }, [
+    el("span", { className: "MathJax_SVG" }, [text("rendered")])
+  ]);
+}
+
+function zhihuMathJaxDisplayFormula(latex) {
+  return el("span", {
+    className: "ztext-math",
+    attributes: {
+      "data-eeimg": "1",
+      "data-tex": latex
+    }
+  }, [
+    el("span", {}, [
+      el("span", { className: "MathJax_SVG_Display" }, [
+        el("span", { className: "MathJax_SVG" }, [text("rendered")])
+      ])
     ])
   ]);
 }
@@ -351,5 +383,47 @@ test("keeps DeepSeek sentence formulas inline when configured with dollar displa
   assert.deepEqual(result, {
     handled: true,
     text: "向上的力 \\(A\\) 作用在支点上"
+  });
+});
+
+test("serializes Zhihu inline MathJax formulas from data-tex", () => {
+  const root = el("p", {}, [
+    text("Adam 在 "),
+    zhihuFormula("\\beta_1=\\beta_2"),
+    text(" 时表现更优。")
+  ]);
+  const result = serializeSelectionToLatexText(selectionForRange(new RangeStub(root)), extractor);
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "Adam 在 \\(\\beta_1=\\beta_2\\) 时表现更优。"
+  });
+});
+
+test("serializes Zhihu display MathJax formulas with dollar delimiters when configured", () => {
+  const root = zhihuFormula("\\int_0^1 x\\,dx", true);
+  const result = serializeSelectionToLatexText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { displayDelimiter: "dollar" }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "$$\\int_0^1 x\\,dx$$"
+  });
+});
+
+test("serializes Zhihu MathJax display wrappers with dollar delimiters when configured", () => {
+  const root = zhihuMathJaxDisplayFormula("\\sum_{k=1}^n k");
+  const result = serializeSelectionToLatexText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { displayDelimiter: "dollar" }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "$$\\sum_{k=1}^n k$$"
   });
 });

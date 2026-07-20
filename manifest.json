@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CopyTeX",
   "version": "0.1.0",
-  "description": "Copy raw LaTeX source from KaTeX-rendered formulas in AI chat pages.",
+  "description": "Copy raw LaTeX source from KaTeX and MathJax-rendered formulas in supported web pages.",
   "permissions": ["contextMenus", "clipboardWrite", "storage"],
   "background": {
     "service_worker": "src/background.js"
@@ -16,7 +16,9 @@
       "matches": [
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
-        "https://chat.deepseek.com/*"
+        "https://chat.deepseek.com/*",
+        "https://www.zhihu.com/*",
+        "https://zhuanlan.zhihu.com/*"
       ],
       "js": ["src/extractor.js", "src/selection.js", "src/content.js"],
       "css": ["src/content.css"],

@@ -3,7 +3,9 @@ const COPYTEX_COPY_MESSAGE = "COPY_LATEX_FROM_CONTEXT_MENU";
 const COPYTEX_SUPPORTED_PATTERNS = [
   "https://chatgpt.com/*",
   "https://chat.openai.com/*",
-  "https://chat.deepseek.com/*"
+  "https://chat.deepseek.com/*",
+  "https://www.zhihu.com/*",
+  "https://zhuanlan.zhihu.com/*"
 ];
 
 chrome.runtime.onInstalled.addListener(() => {

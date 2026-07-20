@@ -1,6 +1,6 @@
 # CopyTeX
 
-An extension that copies raw LaTeX source from KaTeX-rendered formulas on supported AI chat pages.
+An extension that copies raw LaTeX source from KaTeX and MathJax-rendered formulas on supported web pages.
 
 ## Preview
 
@@ -30,3 +30,5 @@ This extension is only tested on Chrome.
 
 - `https://chatgpt.com/`
 - `https://chat.deepseek.com/`
+- `https://www.zhihu.com/`
+- `https://zhuanlan.zhihu.com/`

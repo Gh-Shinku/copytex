@@ -13,6 +13,12 @@
     ".ds-markdown-math-display",
     ".ds-markdown-math-block"
   ];
+  const ZHIHU_MATH_SELECTOR = ".ztext-math";
+  const ZHIHU_DISPLAY_SELECTORS = [
+    ".MathJax_SVG_Display",
+    ".MathJax_Display",
+    ".mjx-display"
+  ];
   const DEEPSEEK_MARKDOWN_SELECTOR = ".ds-markdown";
   const DEEPSEEK_PARAGRAPH_SELECTOR = ".ds-markdown-paragraph";
 
@@ -21,6 +27,15 @@
 
     if (!formulaElement) {
       return null;
+    }
+
+    const zhihuLatex = findZhihuDataTex(formulaElement);
+    if (zhihuLatex) {
+      return {
+        latex: zhihuLatex,
+        displayMode: isZhihuDisplayFormula(formulaElement),
+        source: "zhihu-data-tex"
+      };
     }
 
     const annotationLatex = findAnnotationLatex(formulaElement);
@@ -51,6 +66,11 @@
 
     const display = closestAny(target, KATEX_DISPLAY_SELECTORS);
     const inline = closest(target, KATEX_SELECTOR);
+    const zhihu = closest(target, ZHIHU_MATH_SELECTOR);
+
+    if (zhihu) {
+      return zhihu;
+    }
 
     if (display && (!inline || contains(display, inline))) {
       return display;
@@ -62,8 +82,38 @@
   function isDisplayFormula(element) {
     return (
       Boolean(closestAny(element, KATEX_DISPLAY_SELECTORS)) ||
+      isZhihuDisplayFormula(element) ||
       isDeepSeekDisplayFormula(element)
     );
+  }
+
+  function findZhihuDataTex(root) {
+    const zhihuFormula = matches(root, ZHIHU_MATH_SELECTOR)
+      ? root
+      : closest(root, ZHIHU_MATH_SELECTOR);
+    const latex = zhihuFormula ? cleanLatex(decodeHtmlAttribute(getAttribute(zhihuFormula, "data-tex"))) : "";
+    return latex || null;
+  }
+
+  function isZhihuDisplayFormula(element) {
+    const formula = matches(element, ZHIHU_MATH_SELECTOR)
+      ? element
+      : closest(element, ZHIHU_MATH_SELECTOR);
+
+    if (!formula) {
+      return false;
+    }
+
+    if (getAttribute(formula, "data-eeimg") === "2") {
+      return true;
+    }
+
+    if (hasDescendantMatchingAny(formula, ZHIHU_DISPLAY_SELECTORS)) {
+      return true;
+    }
+
+    const scriptResult = findScriptLatexInside(formula);
+    return Boolean(scriptResult && scriptResult.displayMode);
   }
 
   function findAnnotationLatex(root) {
@@ -166,6 +216,15 @@
     return value.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
   }
 
+  function decodeHtmlAttribute(value) {
+    return String(value || "")
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;|&apos;/g, "'")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&");
+  }
+
   function closest(element, selector) {
     if (!isElementLike(element)) {
       return null;
@@ -195,6 +254,16 @@
     }
 
     return null;
+  }
+
+  function hasDescendantMatchingAny(root, selectors) {
+    for (const selector of selectors) {
+      if (querySelector(root, selector)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   function isDeepSeekDisplayFormula(element) {

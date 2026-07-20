@@ -87,6 +87,10 @@ class NodeStub {
       );
     }
 
+    if (selector.startsWith(".")) {
+      return all.filter((node) => node.matches(selector));
+    }
+
     return [];
   }
 }
@@ -208,6 +212,82 @@ test("marks DeepSeek formulas separated by line breaks as display mode", () => {
   ]);
 
   assert.equal(extractLatexFromElement(katex).displayMode, true);
+});
+
+test("extracts raw TeX from Zhihu MathJax data-tex attributes", () => {
+  const formula = node("span", {
+    className: "ztext-math",
+    attributes: {
+      "data-eeimg": "1",
+      "data-tex": "\\beta_1=\\beta_2"
+    }
+  }, [
+    node("span", { className: "MathJax_SVG" })
+  ]);
+
+  assert.deepEqual(extractLatexFromElement(formula), {
+    latex: "\\beta_1=\\beta_2",
+    displayMode: false,
+    source: "zhihu-data-tex"
+  });
+});
+
+test("finds Zhihu formulas from rendered MathJax descendants", () => {
+  const rendered = node("span", { className: "MathJax_SVG" });
+  const formula = node("span", {
+    className: "ztext-math",
+    attributes: {
+      "data-eeimg": "1",
+      "data-tex": "\\hat{m}_t"
+    }
+  }, [rendered]);
+
+  assert.equal(findFormulaElement(rendered), formula);
+  assert.equal(extractLatexFromElement(rendered).latex, "\\hat{m}_t");
+});
+
+test("marks Zhihu data-eeimg display formulas as display mode", () => {
+  const formula = node("span", {
+    className: "ztext-math",
+    attributes: {
+      "data-eeimg": "2",
+      "data-tex": "\\int_0^1 x\\,dx"
+    }
+  });
+
+  assert.equal(isDisplayFormula(formula), true);
+  assert.equal(extractLatexFromElement(formula).displayMode, true);
+});
+
+test("marks Zhihu MathJax display wrappers as display mode", () => {
+  const formula = node("span", {
+    className: "ztext-math",
+    attributes: {
+      "data-eeimg": "1",
+      "data-tex": "\\sum_{k=1}^n k"
+    }
+  }, [
+    node("span", {}, [
+      node("span", { className: "MathJax_SVG_Display" }, [
+        node("span", { className: "MathJax_SVG" })
+      ])
+    ])
+  ]);
+
+  assert.equal(isDisplayFormula(formula), true);
+  assert.equal(extractLatexFromElement(formula).displayMode, true);
+});
+
+test("decodes basic HTML entities in Zhihu data-tex attributes", () => {
+  const formula = node("span", {
+    className: "ztext-math",
+    attributes: {
+      "data-eeimg": "1",
+      "data-tex": "a &amp; b"
+    }
+  });
+
+  assert.equal(extractLatexFromElement(formula).latex, "a & b");
 });
 
 test("falls back to nearby math/tex scripts", () => {
