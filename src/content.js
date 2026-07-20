@@ -9,11 +9,14 @@
   globalThis.__copyTeXContentLoaded = true;
 
   const COPY_MESSAGE = "COPY_LATEX_FROM_CONTEXT_MENU";
+  const DISPLAY_DELIMITER_STORAGE_KEY = "displayDelimiter";
+  const DEFAULT_DISPLAY_DELIMITER = "bracket";
   const BUTTON_ID = "copytex-floating-button";
   const TOAST_ID = "copytex-toast";
 
   let activeFormula = null;
   let contextFormula = null;
+  let displayDelimiter = DEFAULT_DISPLAY_DELIMITER;
   let floatingButton = null;
   let toast = null;
   let hideTimer = null;
@@ -25,6 +28,8 @@
   document.addEventListener("copy", handleCopy, true);
   window.addEventListener("scroll", repositionFloatingButton, true);
   window.addEventListener("resize", repositionFloatingButton);
+  loadDisplayDelimiterPreference();
+  listenForDisplayDelimiterChanges();
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || message.type !== COPY_MESSAGE) {
@@ -90,7 +95,8 @@
 
     const result = selectionSerializer.serializeSelectionToLatexText(
       window.getSelection(),
-      extractor
+      extractor,
+      { displayDelimiter }
     );
 
     if (!result.handled || !result.text) {
@@ -267,5 +273,38 @@
 
   function contains(parent, child) {
     return Boolean(parent && child && (parent === child || parent.contains(child)));
+  }
+
+  function loadDisplayDelimiterPreference() {
+    if (!chrome.storage || !chrome.storage.sync) {
+      return;
+    }
+
+    chrome.storage.sync.get(
+      { [DISPLAY_DELIMITER_STORAGE_KEY]: DEFAULT_DISPLAY_DELIMITER },
+      (items) => {
+        displayDelimiter = normalizeDisplayDelimiter(items[DISPLAY_DELIMITER_STORAGE_KEY]);
+      }
+    );
+  }
+
+  function listenForDisplayDelimiterChanges() {
+    if (!chrome.storage || !chrome.storage.onChanged) {
+      return;
+    }
+
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== "sync" || !changes[DISPLAY_DELIMITER_STORAGE_KEY]) {
+        return;
+      }
+
+      displayDelimiter = normalizeDisplayDelimiter(
+        changes[DISPLAY_DELIMITER_STORAGE_KEY].newValue
+      );
+    });
+  }
+
+  function normalizeDisplayDelimiter(value) {
+    return value === "dollar" || value === "bracket" ? value : DEFAULT_DISPLAY_DELIMITER;
   }
 })();

@@ -11,11 +11,16 @@
   const TEXT_NODE = 3;
   const DOCUMENT_FRAGMENT_NODE = 11;
 
-  function serializeSelectionToLatexText(selection, extractor) {
+  const DEFAULT_OPTIONS = {
+    displayDelimiter: "bracket"
+  };
+
+  function serializeSelectionToLatexText(selection, extractor, options) {
     if (!selection || !extractor || !selection.rangeCount) {
       return { handled: false, text: "" };
     }
 
+    const normalizedOptions = normalizeOptions(options);
     const parts = [];
     let foundFormula = false;
 
@@ -25,7 +30,7 @@
         continue;
       }
 
-      const result = serializeRangeToLatexText(range, extractor);
+      const result = serializeRangeToLatexText(range, extractor, normalizedOptions);
       if (result.foundFormula) {
         foundFormula = true;
       }
@@ -44,13 +49,14 @@
     };
   }
 
-  function serializeRangeToLatexText(range, extractor) {
+  function serializeRangeToLatexText(range, extractor, options) {
+    const normalizedOptions = normalizeOptions(options);
     const emittedFormulas = new WeakSet();
     const chunks = [];
     const state = { foundFormula: false };
     const root = range.commonAncestorContainer;
 
-    serializeNode(root, range, extractor, emittedFormulas, chunks, state);
+    serializeNode(root, range, extractor, emittedFormulas, chunks, state, normalizedOptions);
 
     return {
       foundFormula: state.foundFormula,
@@ -58,7 +64,7 @@
     };
   }
 
-  function serializeNode(node, range, extractor, emittedFormulas, chunks, state) {
+  function serializeNode(node, range, extractor, emittedFormulas, chunks, state, options) {
     if (!node || !rangeIntersectsNode(range, node)) {
       return;
     }
@@ -66,7 +72,7 @@
     const formulaHost = node.nodeType === TEXT_NODE ? node.parentElement || node.parentNode : node;
     const formula = extractor.findFormulaElement(formulaHost);
     if (formula && rangeIntersectsNode(range, formula)) {
-      emitFormula(formula, extractor, emittedFormulas, chunks, state);
+      emitFormula(formula, extractor, emittedFormulas, chunks, state, options);
       return;
     }
 
@@ -81,11 +87,11 @@
 
     const children = Array.from(node.childNodes || node.children || []);
     for (const child of children) {
-      serializeNode(child, range, extractor, emittedFormulas, chunks, state);
+      serializeNode(child, range, extractor, emittedFormulas, chunks, state, options);
     }
   }
 
-  function emitFormula(formula, extractor, emittedFormulas, chunks, state) {
+  function emitFormula(formula, extractor, emittedFormulas, chunks, state, options) {
     if (emittedFormulas.has(formula)) {
       return;
     }
@@ -97,15 +103,30 @@
 
     emittedFormulas.add(formula);
     state.foundFormula = true;
-    chunks.push(formatFormulaForSelection(extracted));
+    chunks.push(formatFormulaForSelection(extracted, options));
   }
 
-  function formatFormulaForSelection(extracted) {
+  function formatFormulaForSelection(extracted, options) {
     if (extracted.displayMode) {
+      if (normalizeOptions(options).displayDelimiter === "dollar") {
+        return `\n$$${extracted.latex}$$\n`;
+      }
+
       return `\n\\[${extracted.latex}\\]\n`;
     }
 
     return `\\(${extracted.latex}\\)`;
+  }
+
+  function normalizeOptions(options) {
+    const displayDelimiter = options && options.displayDelimiter;
+
+    return {
+      displayDelimiter:
+        displayDelimiter === "dollar" || displayDelimiter === "bracket"
+          ? displayDelimiter
+          : DEFAULT_OPTIONS.displayDelimiter
+    };
   }
 
   function textForRange(textNode, range) {
@@ -185,6 +206,7 @@
   return {
     cleanSelectionText,
     formatFormulaForSelection,
+    normalizeOptions,
     serializeRangeToLatexText,
     serializeSelectionToLatexText
   };

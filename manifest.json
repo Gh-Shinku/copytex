@@ -3,7 +3,7 @@
   "name": "CopyTeX for ChatGPT",
   "version": "0.1.0",
   "description": "Copy raw LaTeX source from KaTeX-rendered formulas in ChatGPT.",
-  "permissions": ["contextMenus", "clipboardWrite"],
+  "permissions": ["contextMenus", "clipboardWrite", "storage"],
   "background": {
     "service_worker": "src/background.js"
   },

@@ -13,6 +13,8 @@ formulas on ChatGPT.
 
 Selection copy is different from single-formula copy: formulas inside selected
 text are wrapped as `\(...\)` or `\[...\]` so the pasted text remains renderable.
+Use the ChatGPT page context menu item `Block formula wrapper` to switch display
+formula wrappers between `\[...\]` and `$$...$$`.
 
 ## Load in Chrome
 

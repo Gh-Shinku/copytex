@@ -267,4 +267,22 @@ test("formats formulas using selected copy delimiters", () => {
     formatFormulaForSelection({ latex: "x", displayMode: true }),
     "\n\\[x\\]\n"
   );
+  assert.equal(
+    formatFormulaForSelection({ latex: "x", displayMode: true }, { displayDelimiter: "dollar" }),
+    "\n$$x$$\n"
+  );
+});
+
+test("serializes display formulas with dollar delimiters when configured", () => {
+  const root = displayFormula("x^2");
+  const result = serializeSelectionToLatexText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { displayDelimiter: "dollar" }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "$$x^2$$"
+  });
 });
