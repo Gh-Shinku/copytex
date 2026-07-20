@@ -1,7 +1,8 @@
 (function initCopyTeXContentScript() {
   const extractor = globalThis.CopyTeXExtractor;
+  const selectionSerializer = globalThis.CopyTeXSelectionSerializer;
 
-  if (!extractor || globalThis.__copyTeXContentLoaded) {
+  if (!extractor || !selectionSerializer || globalThis.__copyTeXContentLoaded) {
     return;
   }
 
@@ -21,6 +22,7 @@
   document.addEventListener("pointerover", handlePointerOver, true);
   document.addEventListener("pointerout", handlePointerOut, true);
   document.addEventListener("contextmenu", handleContextMenu, true);
+  document.addEventListener("copy", handleCopy, true);
   window.addEventListener("scroll", repositionFloatingButton, true);
   window.addEventListener("resize", repositionFloatingButton);
 
@@ -79,6 +81,26 @@
   function handleContextMenu(event) {
     const formula = extractor.findFormulaElement(event.target);
     contextFormula = formula && extractor.extractLatexFromElement(formula) ? formula : null;
+  }
+
+  function handleCopy(event) {
+    if (!event.clipboardData || !window.getSelection) {
+      return;
+    }
+
+    const result = selectionSerializer.serializeSelectionToLatexText(
+      window.getSelection(),
+      extractor
+    );
+
+    if (!result.handled || !result.text) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.clipboardData.setData("text/plain", result.text);
+    showToast("Copied selection with LaTeX");
   }
 
   function showFloatingButton(formula) {
