@@ -180,6 +180,31 @@ function displayFormula(latex) {
   return el("span", { className: "katex-display" }, [inlineFormula(latex)]);
 }
 
+function deepseekDisplayFormula(latex) {
+  return el("span", { className: "ds-markdown-math ds-markdown-math-display" }, [
+    inlineFormula(latex)
+  ]);
+}
+
+function deepseekLabeledFormula(label, latex) {
+  return el("div", { className: "ds-markdown ds-assistant-message-main-content" }, [
+    el("p", { className: "ds-markdown-paragraph" }, [
+      el("span", { textContent: label }, [text(label)]),
+      inlineFormula(latex)
+    ])
+  ]);
+}
+
+function deepseekSentenceFormula(latex) {
+  return el("div", { className: "ds-markdown ds-assistant-message-main-content" }, [
+    el("p", { className: "ds-markdown-paragraph" }, [
+      el("span", { textContent: "向上的力 " }, [text("向上的力 ")]),
+      inlineFormula(latex),
+      el("span", { textContent: " 作用在支点上" }, [text(" 作用在支点上")])
+    ])
+  ]);
+}
+
 function selectionForRange(range) {
   return {
     rangeCount: 1,
@@ -284,5 +309,47 @@ test("serializes display formulas with dollar delimiters when configured", () =>
   assert.deepEqual(result, {
     handled: true,
     text: "$$x^2$$"
+  });
+});
+
+test("serializes DeepSeek display formulas with dollar delimiters when configured", () => {
+  const root = deepseekDisplayFormula("\\sum_{i=1}^n i");
+  const result = serializeSelectionToLatexText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { displayDelimiter: "dollar" }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "$$\\sum_{i=1}^n i$$"
+  });
+});
+
+test("serializes DeepSeek labeled formulas with dollar delimiters when configured", () => {
+  const root = deepseekLabeledFormula("计算：", "18A = 1530");
+  const result = serializeSelectionToLatexText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { displayDelimiter: "dollar" }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "计算：\n$$18A = 1530$$"
+  });
+});
+
+test("keeps DeepSeek sentence formulas inline when configured with dollar display delimiters", () => {
+  const root = deepseekSentenceFormula("A");
+  const result = serializeSelectionToLatexText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { displayDelimiter: "dollar" }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "向上的力 \\(A\\) 作用在支点上"
   });
 });

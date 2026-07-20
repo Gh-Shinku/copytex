@@ -1,6 +1,10 @@
 const COPYTEX_MENU_ID = "copytex-copy-latex";
 const COPYTEX_COPY_MESSAGE = "COPY_LATEX_FROM_CONTEXT_MENU";
-const COPYTEX_CHATGPT_PATTERNS = ["https://chatgpt.com/*", "https://chat.openai.com/*"];
+const COPYTEX_SUPPORTED_PATTERNS = [
+  "https://chatgpt.com/*",
+  "https://chat.openai.com/*",
+  "https://chat.deepseek.com/*"
+];
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
@@ -26,6 +30,6 @@ function createContextMenus() {
     id: COPYTEX_MENU_ID,
     title: "Copy LaTeX source",
     contexts: ["page", "selection"],
-    documentUrlPatterns: COPYTEX_CHATGPT_PATTERNS
+    documentUrlPatterns: COPYTEX_SUPPORTED_PATTERNS
   });
 }

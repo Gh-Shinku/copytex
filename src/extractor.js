@@ -8,7 +8,13 @@
   root.CopyTeXExtractor = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function createExtractor() {
   const KATEX_SELECTOR = ".katex";
-  const KATEX_DISPLAY_SELECTOR = ".katex-display";
+  const KATEX_DISPLAY_SELECTORS = [
+    ".katex-display",
+    ".ds-markdown-math-display",
+    ".ds-markdown-math-block"
+  ];
+  const DEEPSEEK_MARKDOWN_SELECTOR = ".ds-markdown";
+  const DEEPSEEK_PARAGRAPH_SELECTOR = ".ds-markdown-paragraph";
 
   function extractLatexFromElement(target) {
     const formulaElement = findFormulaElement(target);
@@ -43,7 +49,7 @@
       return null;
     }
 
-    const display = closest(target, KATEX_DISPLAY_SELECTOR);
+    const display = closestAny(target, KATEX_DISPLAY_SELECTORS);
     const inline = closest(target, KATEX_SELECTOR);
 
     if (display && (!inline || contains(display, inline))) {
@@ -54,7 +60,10 @@
   }
 
   function isDisplayFormula(element) {
-    return Boolean(closest(element, KATEX_DISPLAY_SELECTOR));
+    return (
+      Boolean(closestAny(element, KATEX_DISPLAY_SELECTORS)) ||
+      isDeepSeekDisplayFormula(element)
+    );
   }
 
   function findAnnotationLatex(root) {
@@ -175,6 +184,113 @@
     }
 
     return null;
+  }
+
+  function closestAny(element, selectors) {
+    for (const selector of selectors) {
+      const match = closest(element, selector);
+      if (match) {
+        return match;
+      }
+    }
+
+    return null;
+  }
+
+  function isDeepSeekDisplayFormula(element) {
+    const katex = closest(element, KATEX_SELECTOR) || element;
+    const paragraph = closest(katex, DEEPSEEK_PARAGRAPH_SELECTOR);
+
+    if (!paragraph || !closest(katex, DEEPSEEK_MARKDOWN_SELECTOR)) {
+      return false;
+    }
+
+    const paragraphChild = directChildWithin(paragraph, katex);
+    if (!paragraphChild) {
+      return false;
+    }
+
+    if (isFormulaOnlyDeepSeekParagraph(paragraph, paragraphChild)) {
+      return true;
+    }
+
+    if (hasLineBreakBoundary(paragraphChild)) {
+      return true;
+    }
+
+    return /[:：]\s*$/.test(previousElementText(paragraphChild));
+  }
+
+  function isFormulaOnlyDeepSeekParagraph(paragraph, formulaChild) {
+    const children = Array.from(paragraph.children || []);
+    let hasFormula = false;
+
+    for (const child of children) {
+      if (child === formulaChild || contains(child, formulaChild)) {
+        hasFormula = true;
+        continue;
+      }
+
+      if (isIgnorableDeepSeekSibling(child)) {
+        continue;
+      }
+
+      return false;
+    }
+
+    return hasFormula;
+  }
+
+  function hasLineBreakBoundary(element) {
+    return (
+      isLineBreakOrEmptySpan(previousElement(element)) ||
+      isLineBreakOrEmptySpan(nextElement(element))
+    );
+  }
+
+  function previousElementText(element) {
+    let cursor = previousElement(element);
+    while (cursor) {
+      if (!isLineBreakOrEmptySpan(cursor)) {
+        return cleanLatex(cursor.textContent || "");
+      }
+      cursor = previousElement(cursor);
+    }
+    return "";
+  }
+
+  function isIgnorableDeepSeekSibling(element) {
+    return isLineBreakOrEmptySpan(element);
+  }
+
+  function isLineBreakOrEmptySpan(element) {
+    if (!element) {
+      return false;
+    }
+
+    if (matches(element, "br")) {
+      return true;
+    }
+
+    return matches(element, "span") && !cleanLatex(element.textContent || "");
+  }
+
+  function directChildWithin(parent, descendant) {
+    let cursor = descendant;
+    let last = null;
+    while (cursor && cursor !== parent) {
+      last = cursor;
+      cursor = cursor.parentElement || cursor.parentNode || null;
+    }
+    return cursor === parent ? last : null;
+  }
+
+  function previousElement(element) {
+    return element ? element.previousElementSibling || null : null;
+  }
+
+  function nextElement(element) {
+    return element ? element.nextElementSibling || null : null;
   }
 
   function matches(element, selector) {

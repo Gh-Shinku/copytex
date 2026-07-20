@@ -25,6 +25,31 @@ body.dark #copytex-toast {
   color-scheme: dark;
 }
 
+html[data-copytex-site="deepseek"] #copytex-floating-button,
+html[data-copytex-site="deepseek"] #copytex-toast {
+  --copytex-surface: var(--dsw-alias-button-floating-fill, #ffffff);
+  --copytex-surface-hover: var(--dsw-alias-button-floating-hover, #f1f3f5);
+  --copytex-surface-active: var(--dsw-alias-bg-layer-3, #e9ecf2);
+  --copytex-text: var(--dsw-alias-label-primary, #0f1115);
+  --copytex-text-muted: var(--dsw-alias-label-secondary, #61666b);
+  --copytex-border: var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.1));
+  --copytex-focus: var(--dsw-alias-button-primary-fill, #3964fe);
+  --copytex-shadow: rgba(15, 17, 21, 0.12);
+  color-scheme: light;
+}
+
+html[data-copytex-site="deepseek"] body[data-ds-dark-theme] #copytex-floating-button,
+html[data-copytex-site="deepseek"] body[data-ds-dark-theme] #copytex-toast {
+  --copytex-surface: var(--dsw-alias-button-floating-fill, #2c2c2e);
+  --copytex-surface-hover: var(--dsw-alias-button-floating-hover, #353638);
+  --copytex-surface-active: var(--dsw-alias-bg-layer-3, #353638);
+  --copytex-text: var(--dsw-alias-label-primary, #f9fafb);
+  --copytex-text-muted: var(--dsw-alias-label-secondary, #cfd3d6);
+  --copytex-border: var(--dsw-alias-border-l2, rgba(255, 255, 255, 0.12));
+  --copytex-shadow: rgba(0, 0, 0, 0.28);
+  color-scheme: dark;
+}
+
 #copytex-floating-button {
   position: fixed;
   z-index: 2147483647;
@@ -90,8 +115,20 @@ body.dark #copytex-toast {
 }
 
 html.dark #copytex-toast[data-copytex-error="true"],
-body.dark #copytex-toast[data-copytex-error="true"] {
+body.dark #copytex-toast[data-copytex-error="true"],
+html[data-copytex-site="deepseek"] body[data-ds-dark-theme]
+  #copytex-toast[data-copytex-error="true"] {
   --copytex-surface: var(--danger-surface, #3b1111);
   --copytex-text: var(--danger-text, #fecaca);
   --copytex-border: rgba(248, 113, 113, 0.28);
+}
+
+html[data-copytex-site="deepseek"] #copytex-toast[data-copytex-error="true"] {
+  --copytex-surface: var(--dsw-alias-bg-layer-1, #fff1f2);
+  --copytex-text: var(--dsw-alias-state-error-primary, #8b1a1a);
+  --copytex-border: color-mix(
+    in srgb,
+    var(--dsw-alias-state-error-primary, #b91c1c) 28%,
+    transparent
+  );
 }

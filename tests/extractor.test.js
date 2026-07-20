@@ -132,6 +132,84 @@ test("marks formulas inside katex-display as display mode", () => {
   assert.equal(extractLatexFromElement(annotation).displayMode, true);
 });
 
+test("marks formulas inside DeepSeek display math wrappers as display mode", () => {
+  const annotation = node("annotation", {
+    attributes: { encoding: "application/x-tex" },
+    textContent: "\\sum_{i=1}^n i"
+  });
+  const katex = node("span", { className: "katex" }, [
+    node("span", { className: "katex-mathml" }, [annotation])
+  ]);
+  const display = node("span", { className: "ds-markdown-math ds-markdown-math-display" }, [
+    katex
+  ]);
+
+  assert.equal(findFormulaElement(annotation), display);
+  assert.equal(isDisplayFormula(annotation), true);
+  assert.equal(extractLatexFromElement(annotation).displayMode, true);
+});
+
+test("marks DeepSeek formulas after label colons as display mode", () => {
+  const annotation = node("annotation", {
+    attributes: { encoding: "application/x-tex" },
+    textContent: "18A = 1530"
+  });
+  const katex = node("span", { className: "katex" }, [
+    node("span", { className: "katex-mathml" }, [annotation])
+  ]);
+  const markdown = node("div", { className: "ds-markdown ds-assistant-message-main-content" }, [
+    node("p", { className: "ds-markdown-paragraph" }, [
+      node("span", { textContent: "计算：" }),
+      katex
+    ])
+  ]);
+
+  assert.equal(extractLatexFromElement(katex).displayMode, true);
+  assert.equal(isDisplayFormula(annotation), true);
+  assert.equal(findFormulaElement(annotation), katex);
+  assert.ok(markdown.contains(katex));
+});
+
+test("keeps DeepSeek formulas in sentence text as inline mode", () => {
+  const annotation = node("annotation", {
+    attributes: { encoding: "application/x-tex" },
+    textContent: "A"
+  });
+  const katex = node("span", { className: "katex" }, [
+    node("span", { className: "katex-mathml" }, [annotation])
+  ]);
+  node("div", { className: "ds-markdown ds-assistant-message-main-content" }, [
+    node("p", { className: "ds-markdown-paragraph" }, [
+      node("span", { textContent: "向上的力 " }),
+      katex,
+      node("span", { textContent: " 作用在支点上" })
+    ])
+  ]);
+
+  assert.equal(extractLatexFromElement(katex).displayMode, false);
+});
+
+test("marks DeepSeek formulas separated by line breaks as display mode", () => {
+  const annotation = node("annotation", {
+    attributes: { encoding: "application/x-tex" },
+    textContent: "A = 85"
+  });
+  const katex = node("span", { className: "katex" }, [
+    node("span", { className: "katex-mathml" }, [annotation])
+  ]);
+  node("div", { className: "ds-markdown ds-assistant-message-main-content" }, [
+    node("p", { className: "ds-markdown-paragraph" }, [
+      node("strong", { textContent: "最终答案：" }),
+      node("span", { textContent: "" }),
+      node("br"),
+      node("span", { textContent: "" }),
+      node("strong", {}, [katex])
+    ])
+  ]);
+
+  assert.equal(extractLatexFromElement(katex).displayMode, true);
+});
+
 test("falls back to nearby math/tex scripts", () => {
   const wrapper = node("p", {}, [
     node("script", {

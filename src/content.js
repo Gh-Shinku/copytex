@@ -28,6 +28,7 @@
   document.addEventListener("copy", handleCopy, true);
   window.addEventListener("scroll", repositionFloatingButton, true);
   window.addEventListener("resize", repositionFloatingButton);
+  markCurrentSite();
   loadDisplayDelimiterPreference();
   listenForDisplayDelimiterChanges();
 
@@ -306,5 +307,11 @@
 
   function normalizeDisplayDelimiter(value) {
     return value === "dollar" || value === "bracket" ? value : DEFAULT_DISPLAY_DELIMITER;
+  }
+
+  function markCurrentSite() {
+    if (location.hostname === "chat.deepseek.com") {
+      document.documentElement.dataset.copytexSite = "deepseek";
+    }
   }
 })();

@@ -1,7 +1,7 @@
-# CopyTeX for ChatGPT
+# CopyTeX
 
 Chrome Manifest V3 extension that copies raw LaTeX source from KaTeX-rendered
-formulas on ChatGPT.
+formulas on supported AI chat pages.
 
 ## Features
 
@@ -10,12 +10,18 @@ formulas on ChatGPT.
 - Select text containing formulas and copy normally with `Ctrl+C` or a copy menu.
 - Copies the raw formula body only, without adding `\(...\)` or `\[...\]`.
 - Reads KaTeX MathML annotations first and avoids guessing from rendered HTML.
-- Floating UI follows ChatGPT light and dark themes.
+- Floating UI follows ChatGPT and DeepSeek light and dark themes.
 
 Selection copy is different from single-formula copy: formulas inside selected
 text are wrapped as `\(...\)` or `\[...\]` so the pasted text remains renderable.
 Use the extension popup to switch display formula wrappers between `\[...\]`
 and `$$...$$`.
+
+## Supported Sites
+
+- `https://chatgpt.com/`
+- `https://chat.openai.com/`
+- `https://chat.deepseek.com/`
 
 ## Load in Chrome
 
@@ -23,14 +29,15 @@ and `$$...$$`.
 2. Enable Developer mode.
 3. Click `Load unpacked`.
 4. Select this repository folder.
-5. Open or reload `https://chatgpt.com/` and test on a response containing rendered math.
+5. Open or reload a supported site and test on a response containing rendered math.
 
 ## Development
 
-Run the extractor tests:
+Run tests:
 
 ```powershell
 node --test tests/extractor.test.js
+node --test tests/selection.test.js
 ```
 
 Run syntax checks:
@@ -40,4 +47,5 @@ node --check src/extractor.js
 node --check src/selection.js
 node --check src/content.js
 node --check src/background.js
+node --check src/popup.js
 ```
