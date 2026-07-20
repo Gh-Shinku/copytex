@@ -1,29 +1,24 @@
 # CopyTeX
 
-Chrome Manifest V3 extension that copies raw LaTeX source from KaTeX-rendered
-formulas on supported AI chat pages.
+An extension that copies raw LaTeX source from KaTeX-rendered formulas on supported AI chat pages.
 
-## Features
+## Preview
 
-- Hover a rendered formula and click `Copy TeX`.
-- Right-click after pointing at a formula and choose `Copy LaTeX source`.
-- Select text containing formulas and copy normally with `Ctrl+C` or a copy menu.
-- Copies the raw formula body only, without adding `\(...\)` or `\[...\]`.
-- Reads KaTeX MathML annotations first and avoids guessing from rendered HTML.
-- Floating UI follows ChatGPT and DeepSeek light and dark themes.
+<p align="center">
+  <img src="assets/hover.png" alt="CopyTeX hover copy button" width="760">
+</p>
 
-Selection copy is different from single-formula copy: formulas inside selected
-text are wrapped as `\(...\)` or `\[...\]` so the pasted text remains renderable.
-Use the extension popup to switch display formula wrappers between `\[...\]`
-and `$$...$$`.
+<p align="center"><sub>Hover copy control on a rendered formula.</sub></p>
 
-## Supported Sites
+<p align="center">
+  <img src="assets/popup.png" alt="CopyTeX extension popup" width="320">
+</p>
 
-- `https://chatgpt.com/`
-- `https://chat.openai.com/`
-- `https://chat.deepseek.com/`
+<p align="center"><sub>Extension popup for display formula wrapper settings.</sub></p>
 
-## Load in Chrome
+## Installation
+
+This extension is only tested on Chrome.
 
 1. Open `chrome://extensions`.
 2. Enable Developer mode.
@@ -31,21 +26,7 @@ and `$$...$$`.
 4. Select this repository folder.
 5. Open or reload a supported site and test on a response containing rendered math.
 
-## Development
+## Supported Sites
 
-Run tests:
-
-```powershell
-node --test tests/extractor.test.js
-node --test tests/selection.test.js
-```
-
-Run syntax checks:
-
-```powershell
-node --check src/extractor.js
-node --check src/selection.js
-node --check src/content.js
-node --check src/background.js
-node --check src/popup.js
-```
+- `https://chatgpt.com/`
+- `https://chat.deepseek.com/`
