@@ -10,6 +10,7 @@ formulas on ChatGPT.
 - Select text containing formulas and copy normally with `Ctrl+C` or a copy menu.
 - Copies the raw formula body only, without adding `\(...\)` or `\[...\]`.
 - Reads KaTeX MathML annotations first and avoids guessing from rendered HTML.
+- Floating UI follows ChatGPT light and dark themes.
 
 Selection copy is different from single-formula copy: formulas inside selected
 text are wrapped as `\(...\)` or `\[...\]` so the pasted text remains renderable.

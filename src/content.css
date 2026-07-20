@@ -1,30 +1,61 @@
+#copytex-floating-button,
+#copytex-toast {
+  --copytex-surface: var(--main-surface-primary, #ffffff);
+  --copytex-surface-hover: var(--surface-hover, #f7f7f8);
+  --copytex-surface-active: var(--surface-active, #ececf1);
+  --copytex-text: var(--text-primary, #0d0d0d);
+  --copytex-text-muted: var(--text-secondary, #5d5d5d);
+  --copytex-border: var(--border-light, rgba(13, 13, 13, 0.12));
+  --copytex-shadow: rgba(0, 0, 0, 0.08);
+  --copytex-focus: var(--accent-primary, #10a37f);
+  color-scheme: light;
+}
+
+html.dark #copytex-floating-button,
+html.dark #copytex-toast,
+body.dark #copytex-floating-button,
+body.dark #copytex-toast {
+  --copytex-surface: var(--main-surface-primary, #212121);
+  --copytex-surface-hover: var(--surface-hover, #2f2f2f);
+  --copytex-surface-active: var(--surface-active, #3a3a3a);
+  --copytex-text: var(--text-primary, #ececec);
+  --copytex-text-muted: var(--text-secondary, #b4b4b4);
+  --copytex-border: var(--border-light, rgba(255, 255, 255, 0.14));
+  --copytex-shadow: rgba(0, 0, 0, 0.24);
+  color-scheme: dark;
+}
+
 #copytex-floating-button {
   position: fixed;
   z-index: 2147483647;
   box-sizing: border-box;
   min-width: 84px;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid rgba(24, 24, 27, 0.16);
-  border-radius: 6px;
-  background: #ffffff;
-  color: #18181b;
-  box-shadow: 0 6px 18px rgba(24, 24, 27, 0.16);
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--copytex-border);
+  border-radius: 8px;
+  background: var(--copytex-surface);
+  color: var(--copytex-text);
+  box-shadow: 0 2px 8px var(--copytex-shadow);
   cursor: pointer;
-  font: 600 12px/28px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 500 13px/30px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 #copytex-floating-button:hover {
-  background: #f4f4f5;
+  background: var(--copytex-surface-hover);
 }
 
 #copytex-floating-button:active {
-  background: #e4e4e7;
+  background: var(--copytex-surface-active);
 }
 
 #copytex-floating-button:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--copytex-focus);
   outline-offset: 2px;
 }
 
@@ -41,16 +72,26 @@
   max-width: min(420px, calc(100vw - 32px));
   transform: translateX(-50%);
   box-sizing: border-box;
-  padding: 9px 12px;
-  border-radius: 6px;
-  background: #18181b;
-  color: #ffffff;
-  box-shadow: 0 8px 24px rgba(24, 24, 27, 0.22);
+  padding: 9px 13px;
+  border: 1px solid var(--copytex-border);
+  border-radius: 8px;
+  background: var(--copytex-surface);
+  color: var(--copytex-text);
+  box-shadow: 0 4px 14px var(--copytex-shadow);
   font: 500 13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
   overflow-wrap: anywhere;
 }
 
 #copytex-toast[data-copytex-error="true"] {
-  background: #b91c1c;
+  --copytex-surface: var(--danger-surface, #fff1f2);
+  --copytex-text: var(--danger-text, #8b1a1a);
+  --copytex-border: rgba(185, 28, 28, 0.22);
+}
+
+html.dark #copytex-toast[data-copytex-error="true"],
+body.dark #copytex-toast[data-copytex-error="true"] {
+  --copytex-surface: var(--danger-surface, #3b1111);
+  --copytex-text: var(--danger-text, #fecaca);
+  --copytex-border: rgba(248, 113, 113, 0.28);
 }
