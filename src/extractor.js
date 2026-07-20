@@ -1,0 +1,261 @@
+(function registerCopyTeXExtractor(root, factory) {
+  const api = factory();
+
+  if (typeof module === "object" && module.exports) {
+    module.exports = api;
+  }
+
+  root.CopyTeXExtractor = api;
+})(typeof globalThis !== "undefined" ? globalThis : this, function createExtractor() {
+  const KATEX_SELECTOR = ".katex";
+  const KATEX_DISPLAY_SELECTOR = ".katex-display";
+
+  function extractLatexFromElement(target) {
+    const formulaElement = findFormulaElement(target);
+
+    if (!formulaElement) {
+      return null;
+    }
+
+    const annotationLatex = findAnnotationLatex(formulaElement);
+    if (annotationLatex) {
+      return {
+        latex: annotationLatex,
+        displayMode: isDisplayFormula(formulaElement),
+        source: "annotation"
+      };
+    }
+
+    const scriptResult = findNearbyScriptLatex(formulaElement);
+    if (scriptResult) {
+      return {
+        latex: scriptResult.latex,
+        displayMode: scriptResult.displayMode || isDisplayFormula(formulaElement),
+        source: "script"
+      };
+    }
+
+    return null;
+  }
+
+  function findFormulaElement(target) {
+    if (!isElementLike(target)) {
+      return null;
+    }
+
+    const display = closest(target, KATEX_DISPLAY_SELECTOR);
+    const inline = closest(target, KATEX_SELECTOR);
+
+    if (display && (!inline || contains(display, inline))) {
+      return display;
+    }
+
+    return inline || display || null;
+  }
+
+  function isDisplayFormula(element) {
+    return Boolean(closest(element, KATEX_DISPLAY_SELECTOR));
+  }
+
+  function findAnnotationLatex(root) {
+    const annotations = querySelectorAll(root, "annotation");
+
+    for (const annotation of annotations) {
+      const encoding = getAttribute(annotation, "encoding").toLowerCase();
+      if (encoding === "application/x-tex") {
+        const latex = cleanLatex(annotation.textContent);
+        if (latex) {
+          return latex;
+        }
+      }
+    }
+
+    const fallback = querySelector(root, ".katex-mathml annotation");
+    const latex = fallback ? cleanLatex(fallback.textContent) : "";
+    return latex || null;
+  }
+
+  function findNearbyScriptLatex(formulaElement) {
+    const directScript = findScriptLatexInside(formulaElement);
+    if (directScript) {
+      return directScript;
+    }
+
+    let cursor = formulaElement;
+    for (let depth = 0; depth < 3 && cursor; depth += 1) {
+      const siblingResult = findScriptLatexNearSiblings(cursor);
+      if (siblingResult) {
+        return siblingResult;
+      }
+      cursor = cursor.parentElement || cursor.parentNode || null;
+    }
+
+    return null;
+  }
+
+  function findScriptLatexInside(root) {
+    const scripts = querySelectorAll(root, "script");
+
+    for (const script of scripts) {
+      const result = scriptToLatex(script);
+      if (result) {
+        return result;
+      }
+    }
+
+    return null;
+  }
+
+  function findScriptLatexNearSiblings(element) {
+    let previous = element.previousElementSibling || null;
+    for (let i = 0; i < 3 && previous; i += 1) {
+      const result = scriptToLatex(previous) || findScriptLatexInside(previous);
+      if (result) {
+        return result;
+      }
+      previous = previous.previousElementSibling || null;
+    }
+
+    let next = element.nextElementSibling || null;
+    for (let i = 0; i < 3 && next; i += 1) {
+      const result = scriptToLatex(next) || findScriptLatexInside(next);
+      if (result) {
+        return result;
+      }
+      next = next.nextElementSibling || null;
+    }
+
+    return null;
+  }
+
+  function scriptToLatex(element) {
+    if (!matches(element, "script")) {
+      return null;
+    }
+
+    const type = getAttribute(element, "type").toLowerCase();
+    if (!type.startsWith("math/tex")) {
+      return null;
+    }
+
+    const latex = cleanLatex(element.textContent);
+    if (!latex) {
+      return null;
+    }
+
+    return {
+      latex,
+      displayMode: type.includes("mode=display")
+    };
+  }
+
+  function cleanLatex(value) {
+    if (typeof value !== "string") {
+      return "";
+    }
+
+    return value.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+  }
+
+  function closest(element, selector) {
+    if (!isElementLike(element)) {
+      return null;
+    }
+
+    if (typeof element.closest === "function") {
+      return element.closest(selector);
+    }
+
+    let cursor = element;
+    while (cursor) {
+      if (matches(cursor, selector)) {
+        return cursor;
+      }
+      cursor = cursor.parentElement || cursor.parentNode || null;
+    }
+
+    return null;
+  }
+
+  function matches(element, selector) {
+    if (!isElementLike(element)) {
+      return false;
+    }
+
+    if (typeof element.matches === "function") {
+      return element.matches(selector);
+    }
+
+    if (selector === "script") {
+      return String(element.tagName || "").toLowerCase() === "script";
+    }
+
+    if (selector.startsWith(".")) {
+      return hasClass(element, selector.slice(1));
+    }
+
+    return String(element.tagName || "").toLowerCase() === selector.toLowerCase();
+  }
+
+  function hasClass(element, className) {
+    if (element.classList && typeof element.classList.contains === "function") {
+      return element.classList.contains(className);
+    }
+
+    return String(element.className || "")
+      .split(/\s+/)
+      .includes(className);
+  }
+
+  function contains(parent, child) {
+    if (!parent || !child) {
+      return false;
+    }
+
+    if (typeof parent.contains === "function") {
+      return parent.contains(child);
+    }
+
+    let cursor = child;
+    while (cursor) {
+      if (cursor === parent) {
+        return true;
+      }
+      cursor = cursor.parentElement || cursor.parentNode || null;
+    }
+
+    return false;
+  }
+
+  function querySelector(root, selector) {
+    if (root && typeof root.querySelector === "function") {
+      return root.querySelector(selector);
+    }
+    return null;
+  }
+
+  function querySelectorAll(root, selector) {
+    if (root && typeof root.querySelectorAll === "function") {
+      return Array.from(root.querySelectorAll(selector));
+    }
+    return [];
+  }
+
+  function getAttribute(element, name) {
+    if (element && typeof element.getAttribute === "function") {
+      return element.getAttribute(name) || "";
+    }
+    return "";
+  }
+
+  function isElementLike(value) {
+    return Boolean(value && (value.nodeType === 1 || typeof value.tagName === "string"));
+  }
+
+  return {
+    cleanLatex,
+    extractLatexFromElement,
+    findFormulaElement,
+    isDisplayFormula
+  };
+});

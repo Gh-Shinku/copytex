@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "CopyTeX for ChatGPT",
+  "version": "0.1.0",
+  "description": "Copy raw LaTeX source from KaTeX-rendered formulas in ChatGPT.",
+  "permissions": ["contextMenus", "clipboardWrite"],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_title": "CopyTeX for ChatGPT"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["src/extractor.js", "src/content.js"],
+      "css": ["src/content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
