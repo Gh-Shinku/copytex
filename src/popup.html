@@ -12,20 +12,20 @@
         <h1>CopyTeX</h1>
       </header>
 
-      <section class="copytex-section" aria-labelledby="display-wrapper-label">
+      <section class="copytex-section" aria-labelledby="output-format-label">
         <div class="copytex-section-header">
-          <h2 id="display-wrapper-label">Block formula wrapper</h2>
-          <p>Used when copying selected text that contains display math.</p>
+          <h2 id="output-format-label">Output format</h2>
+          <p>Used for selection, hover, and context-menu copies.</p>
         </div>
 
-        <div class="copytex-options" role="radiogroup" aria-labelledby="display-wrapper-label">
+        <div class="copytex-options" role="radiogroup" aria-labelledby="output-format-label">
           <label class="copytex-option">
-            <input type="radio" name="displayDelimiter" value="bracket">
-            <span class="copytex-option-text">\\[ ... \\]</span>
+            <input type="radio" name="outputFormat" value="markdown">
+            <span class="copytex-option-text">Markdown: $ ... $</span>
           </label>
           <label class="copytex-option">
-            <input type="radio" name="displayDelimiter" value="dollar">
-            <span class="copytex-option-text">$$ ... $$</span>
+            <input type="radio" name="outputFormat" value="latex">
+            <span class="copytex-option-text">LaTeX: \\( ... \\)</span>
           </label>
         </div>
       </section>

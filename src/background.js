@@ -30,7 +30,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 function createContextMenus() {
   chrome.contextMenus.create({
     id: COPYTEX_MENU_ID,
-    title: "Copy LaTeX source",
+    title: "Copy formula",
     contexts: ["page", "selection"],
     documentUrlPatterns: COPYTEX_SUPPORTED_PATTERNS
   });

@@ -12,7 +12,7 @@
   const DOCUMENT_FRAGMENT_NODE = 11;
 
   const DEFAULT_OPTIONS = {
-    displayDelimiter: "bracket"
+    outputFormat: "markdown"
   };
 
   function serializeSelectionToLatexText(selection, extractor, options) {
@@ -107,25 +107,44 @@
   }
 
   function formatFormulaForSelection(extracted, options) {
-    if (extracted.displayMode) {
-      if (normalizeOptions(options).displayDelimiter === "dollar") {
-        return `\n$$${extracted.latex}$$\n`;
-      }
-
-      return `\n\\[${extracted.latex}\\]\n`;
+    const text = formatFormula(extracted, options);
+    if (extracted && extracted.displayMode && text) {
+      return `\n${text}\n`;
     }
 
-    return `\\(${extracted.latex}\\)`;
+    return text;
+  }
+
+  function formatFormula(extracted, options) {
+    if (!extracted || !extracted.latex) {
+      return "";
+    }
+
+    const normalizedOptions = normalizeOptions(options);
+
+    if (extracted.displayMode) {
+      if (normalizedOptions.outputFormat === "latex") {
+        return `\\[\n${extracted.latex}\n\\]`;
+      }
+
+      return `$$\n${extracted.latex}\n$$`;
+    }
+
+    if (normalizedOptions.outputFormat === "latex") {
+      return `\\(${extracted.latex}\\)`;
+    }
+
+    return `$${extracted.latex}$`;
   }
 
   function normalizeOptions(options) {
-    const displayDelimiter = options && options.displayDelimiter;
+    const outputFormat = options && options.outputFormat;
 
     return {
-      displayDelimiter:
-        displayDelimiter === "dollar" || displayDelimiter === "bracket"
-          ? displayDelimiter
-          : DEFAULT_OPTIONS.displayDelimiter
+      outputFormat:
+        outputFormat === "latex" || outputFormat === "markdown"
+          ? outputFormat
+          : DEFAULT_OPTIONS.outputFormat
     };
   }
 
@@ -205,6 +224,7 @@
 
   return {
     cleanSelectionText,
+    formatFormula,
     formatFormulaForSelection,
     normalizeOptions,
     serializeRangeToLatexText,

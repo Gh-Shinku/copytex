@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CopyTeX",
   "version": "0.1.0",
-  "description": "Copy raw LaTeX source from KaTeX and MathJax-rendered formulas in supported web pages.",
+  "description": "Copy KaTeX and MathJax-rendered formulas as Markdown or LaTeX in supported web pages.",
   "permissions": ["contextMenus", "clipboardWrite", "storage"],
   "background": {
     "service_worker": "src/background.js"

@@ -1,13 +1,13 @@
-const DISPLAY_DELIMITER_STORAGE_KEY = "displayDelimiter";
-const DEFAULT_DISPLAY_DELIMITER = "bracket";
+const OUTPUT_FORMAT_STORAGE_KEY = "outputFormat";
+const DEFAULT_OUTPUT_FORMAT = "markdown";
 
 const statusElement = document.getElementById("status");
-const inputs = Array.from(document.querySelectorAll('input[name="displayDelimiter"]'));
+const inputs = Array.from(document.querySelectorAll('input[name="outputFormat"]'));
 
 chrome.storage.sync.get(
-  { [DISPLAY_DELIMITER_STORAGE_KEY]: DEFAULT_DISPLAY_DELIMITER },
+  { [OUTPUT_FORMAT_STORAGE_KEY]: DEFAULT_OUTPUT_FORMAT },
   (items) => {
-    const value = normalizeDisplayDelimiter(items[DISPLAY_DELIMITER_STORAGE_KEY]);
+    const value = normalizeOutputFormat(items[OUTPUT_FORMAT_STORAGE_KEY]);
     setCheckedValue(value);
   }
 );
@@ -18,8 +18,8 @@ for (const input of inputs) {
       return;
     }
 
-    const value = normalizeDisplayDelimiter(input.value);
-    chrome.storage.sync.set({ [DISPLAY_DELIMITER_STORAGE_KEY]: value }, () => {
+    const value = normalizeOutputFormat(input.value);
+    chrome.storage.sync.set({ [OUTPUT_FORMAT_STORAGE_KEY]: value }, () => {
       showStatus("Saved");
     });
   });
@@ -31,8 +31,8 @@ function setCheckedValue(value) {
   }
 }
 
-function normalizeDisplayDelimiter(value) {
-  return value === "dollar" || value === "bracket" ? value : DEFAULT_DISPLAY_DELIMITER;
+function normalizeOutputFormat(value) {
+  return value === "latex" || value === "markdown" ? value : DEFAULT_OUTPUT_FORMAT;
 }
 
 function showStatus(message) {

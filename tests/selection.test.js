@@ -2,7 +2,9 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const extractor = require("../src/extractor");
 const {
+  formatFormula,
   formatFormulaForSelection,
+  normalizeOptions,
   serializeSelectionToLatexText
 } = require("../src/selection");
 
@@ -260,7 +262,7 @@ test("wraps inline formulas with inline delimiters", () => {
 
   assert.deepEqual(result, {
     handled: true,
-    text: "\\(E = mc^2\\)"
+    text: "$E = mc^2$"
   });
 });
 
@@ -270,7 +272,7 @@ test("wraps display formulas with display delimiters", () => {
 
   assert.deepEqual(result, {
     handled: true,
-    text: "\\[\\int_0^1 x\\,dx\\]"
+    text: "$$\n\\int_0^1 x\\,dx\n$$"
   });
 });
 
@@ -280,7 +282,7 @@ test("serializes mixed text and inline formulas in DOM order", () => {
 
   assert.deepEqual(result, {
     handled: true,
-    text: "Energy \\(E = mc^2\\) relation."
+    text: "Energy $E = mc^2$ relation."
   });
 });
 
@@ -294,7 +296,7 @@ test("serializes multiple formulas once each", () => {
 
   assert.deepEqual(result, {
     handled: true,
-    text: "\\(a+b\\) and \\(c+d\\)"
+    text: "$a+b$ and $c+d$"
   });
 });
 
@@ -311,78 +313,94 @@ test("copies the whole formula when selection starts inside formula internals", 
 
   assert.deepEqual(result, {
     handled: true,
-    text: "\\(\\frac{1}{2}\\)"
+    text: "$\\frac{1}{2}$"
   });
 });
 
-test("formats formulas using selected copy delimiters", () => {
+test("formats formulas using selected output format", () => {
   assert.equal(
     formatFormulaForSelection({ latex: "x", displayMode: false }),
-    "\\(x\\)"
+    "$x$"
   );
   assert.equal(
     formatFormulaForSelection({ latex: "x", displayMode: true }),
-    "\n\\[x\\]\n"
+    "\n$$\nx\n$$\n"
   );
   assert.equal(
-    formatFormulaForSelection({ latex: "x", displayMode: true }, { displayDelimiter: "dollar" }),
-    "\n$$x$$\n"
+    formatFormulaForSelection({ latex: "x", displayMode: false }, { outputFormat: "latex" }),
+    "\\(x\\)"
+  );
+  assert.equal(
+    formatFormulaForSelection({ latex: "x", displayMode: true }, { outputFormat: "latex" }),
+    "\n\\[\nx\n\\]\n"
   );
 });
 
-test("serializes display formulas with dollar delimiters when configured", () => {
+test("formats single formulas through the shared formatter", () => {
+  assert.equal(formatFormula({ latex: "x+1", displayMode: false }), "$x+1$");
+  assert.equal(formatFormula({ latex: "x+1", displayMode: true }), "$$\nx+1\n$$");
+  assert.equal(
+    formatFormula({ latex: "x+1", displayMode: true }, { outputFormat: "latex" }),
+    "\\[\nx+1\n\\]"
+  );
+});
+
+test("normalizes invalid output format to Markdown", () => {
+  assert.deepEqual(normalizeOptions({ outputFormat: "unknown" }), {
+    outputFormat: "markdown"
+  });
+});
+
+test("serializes display formulas as LaTeX when configured", () => {
   const root = displayFormula("x^2");
   const result = serializeSelectionToLatexText(
     selectionForRange(new RangeStub(root)),
     extractor,
-    { displayDelimiter: "dollar" }
+    { outputFormat: "latex" }
   );
 
   assert.deepEqual(result, {
     handled: true,
-    text: "$$x^2$$"
+    text: "\\[\nx^2\n\\]"
   });
 });
 
-test("serializes DeepSeek display formulas with dollar delimiters when configured", () => {
+test("serializes DeepSeek display formulas with Markdown delimiters by default", () => {
   const root = deepseekDisplayFormula("\\sum_{i=1}^n i");
   const result = serializeSelectionToLatexText(
     selectionForRange(new RangeStub(root)),
-    extractor,
-    { displayDelimiter: "dollar" }
+    extractor
   );
 
   assert.deepEqual(result, {
     handled: true,
-    text: "$$\\sum_{i=1}^n i$$"
+    text: "$$\n\\sum_{i=1}^n i\n$$"
   });
 });
 
-test("serializes DeepSeek labeled formulas with dollar delimiters when configured", () => {
+test("serializes DeepSeek labeled formulas with Markdown delimiters by default", () => {
   const root = deepseekLabeledFormula("计算：", "18A = 1530");
   const result = serializeSelectionToLatexText(
     selectionForRange(new RangeStub(root)),
-    extractor,
-    { displayDelimiter: "dollar" }
+    extractor
   );
 
   assert.deepEqual(result, {
     handled: true,
-    text: "计算：\n$$18A = 1530$$"
+    text: "计算：\n$$\n18A = 1530\n$$"
   });
 });
 
-test("keeps DeepSeek sentence formulas inline when configured with dollar display delimiters", () => {
+test("keeps DeepSeek sentence formulas inline in Markdown mode", () => {
   const root = deepseekSentenceFormula("A");
   const result = serializeSelectionToLatexText(
     selectionForRange(new RangeStub(root)),
-    extractor,
-    { displayDelimiter: "dollar" }
+    extractor
   );
 
   assert.deepEqual(result, {
     handled: true,
-    text: "向上的力 \\(A\\) 作用在支点上"
+    text: "向上的力 $A$ 作用在支点上"
   });
 });
 
@@ -396,34 +414,32 @@ test("serializes Zhihu inline MathJax formulas from data-tex", () => {
 
   assert.deepEqual(result, {
     handled: true,
-    text: "Adam 在 \\(\\beta_1=\\beta_2\\) 时表现更优。"
+    text: "Adam 在 $\\beta_1=\\beta_2$ 时表现更优。"
   });
 });
 
-test("serializes Zhihu display MathJax formulas with dollar delimiters when configured", () => {
+test("serializes Zhihu display MathJax formulas with Markdown delimiters by default", () => {
   const root = zhihuFormula("\\int_0^1 x\\,dx", true);
   const result = serializeSelectionToLatexText(
     selectionForRange(new RangeStub(root)),
-    extractor,
-    { displayDelimiter: "dollar" }
+    extractor
   );
 
   assert.deepEqual(result, {
     handled: true,
-    text: "$$\\int_0^1 x\\,dx$$"
+    text: "$$\n\\int_0^1 x\\,dx\n$$"
   });
 });
 
-test("serializes Zhihu MathJax display wrappers with dollar delimiters when configured", () => {
+test("serializes Zhihu MathJax display wrappers with Markdown delimiters by default", () => {
   const root = zhihuMathJaxDisplayFormula("\\sum_{k=1}^n k");
   const result = serializeSelectionToLatexText(
     selectionForRange(new RangeStub(root)),
-    extractor,
-    { displayDelimiter: "dollar" }
+    extractor
   );
 
   assert.deepEqual(result, {
     handled: true,
-    text: "$$\\sum_{k=1}^n k$$"
+    text: "$$\n\\sum_{k=1}^n k\n$$"
   });
 });

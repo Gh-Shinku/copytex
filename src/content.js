@@ -9,14 +9,14 @@
   globalThis.__copyTeXContentLoaded = true;
 
   const COPY_MESSAGE = "COPY_LATEX_FROM_CONTEXT_MENU";
-  const DISPLAY_DELIMITER_STORAGE_KEY = "displayDelimiter";
-  const DEFAULT_DISPLAY_DELIMITER = "bracket";
+  const OUTPUT_FORMAT_STORAGE_KEY = "outputFormat";
+  const DEFAULT_OUTPUT_FORMAT = "markdown";
   const BUTTON_ID = "copytex-floating-button";
   const TOAST_ID = "copytex-toast";
 
   let activeFormula = null;
   let contextFormula = null;
-  let displayDelimiter = DEFAULT_DISPLAY_DELIMITER;
+  let outputFormat = DEFAULT_OUTPUT_FORMAT;
   let floatingButton = null;
   let toast = null;
   let hideTimer = null;
@@ -29,8 +29,8 @@
   window.addEventListener("scroll", repositionFloatingButton, true);
   window.addEventListener("resize", repositionFloatingButton);
   markCurrentSite();
-  loadDisplayDelimiterPreference();
-  listenForDisplayDelimiterChanges();
+  loadOutputFormatPreference();
+  listenForOutputFormatChanges();
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || message.type !== COPY_MESSAGE) {
@@ -97,7 +97,7 @@
     const result = selectionSerializer.serializeSelectionToLatexText(
       window.getSelection(),
       extractor,
-      { displayDelimiter }
+      { outputFormat }
     );
 
     if (!result.handled || !result.text) {
@@ -107,7 +107,7 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     event.clipboardData.setData("text/plain", result.text);
-    showToast("Copied selection with LaTeX");
+    showToast(`Copied selection as ${formatLabel(outputFormat)}`);
   }
 
   function showFloatingButton(formula) {
@@ -127,8 +127,8 @@
     floatingButton.id = BUTTON_ID;
     floatingButton.type = "button";
     floatingButton.textContent = "Copy TeX";
-    floatingButton.title = "Copy raw LaTeX source";
-    floatingButton.setAttribute("aria-label", "Copy raw LaTeX source");
+    floatingButton.title = "Copy formula";
+    floatingButton.setAttribute("aria-label", "Copy formula");
     floatingButton.hidden = true;
 
     floatingButton.addEventListener("pointerover", clearHideTimer);
@@ -199,13 +199,14 @@
   async function copyFormula(formula) {
     const result = formula ? extractor.extractLatexFromElement(formula) : null;
     if (!result || !result.latex) {
-      return { ok: false, error: "No LaTeX source found" };
+      return { ok: false, error: "No formula source found" };
     }
 
     try {
-      await writeClipboard(result.latex);
-      showToast("Copied LaTeX source");
-      return { ok: true, latex: result.latex };
+      const text = selectionSerializer.formatFormula(result, { outputFormat });
+      await writeClipboard(text);
+      showToast(`Copied formula as ${formatLabel(outputFormat)}`);
+      return { ok: true, latex: result.latex, text };
     } catch (error) {
       const reason = error && error.message ? error.message : "Copy failed";
       return { ok: false, error: reason };
@@ -276,37 +277,39 @@
     return Boolean(parent && child && (parent === child || parent.contains(child)));
   }
 
-  function loadDisplayDelimiterPreference() {
+  function loadOutputFormatPreference() {
     if (!chrome.storage || !chrome.storage.sync) {
       return;
     }
 
     chrome.storage.sync.get(
-      { [DISPLAY_DELIMITER_STORAGE_KEY]: DEFAULT_DISPLAY_DELIMITER },
+      { [OUTPUT_FORMAT_STORAGE_KEY]: DEFAULT_OUTPUT_FORMAT },
       (items) => {
-        displayDelimiter = normalizeDisplayDelimiter(items[DISPLAY_DELIMITER_STORAGE_KEY]);
+        outputFormat = normalizeOutputFormat(items[OUTPUT_FORMAT_STORAGE_KEY]);
       }
     );
   }
 
-  function listenForDisplayDelimiterChanges() {
+  function listenForOutputFormatChanges() {
     if (!chrome.storage || !chrome.storage.onChanged) {
       return;
     }
 
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== "sync" || !changes[DISPLAY_DELIMITER_STORAGE_KEY]) {
+      if (areaName !== "sync" || !changes[OUTPUT_FORMAT_STORAGE_KEY]) {
         return;
       }
 
-      displayDelimiter = normalizeDisplayDelimiter(
-        changes[DISPLAY_DELIMITER_STORAGE_KEY].newValue
-      );
+      outputFormat = normalizeOutputFormat(changes[OUTPUT_FORMAT_STORAGE_KEY].newValue);
     });
   }
 
-  function normalizeDisplayDelimiter(value) {
-    return value === "dollar" || value === "bracket" ? value : DEFAULT_DISPLAY_DELIMITER;
+  function normalizeOutputFormat(value) {
+    return value === "latex" || value === "markdown" ? value : DEFAULT_OUTPUT_FORMAT;
+  }
+
+  function formatLabel(value) {
+    return normalizeOutputFormat(value) === "latex" ? "LaTeX" : "Markdown";
   }
 
   function markCurrentSite() {

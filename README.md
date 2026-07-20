@@ -1,6 +1,6 @@
 # CopyTeX
 
-An extension that copies raw LaTeX source from KaTeX and MathJax-rendered formulas on supported web pages.
+An extension that copies KaTeX and MathJax-rendered formulas as Markdown or LaTeX on supported web pages.
 
 ## Preview
 
@@ -14,7 +14,7 @@ An extension that copies raw LaTeX source from KaTeX and MathJax-rendered formul
   <img src="assets/popup.png" alt="CopyTeX extension popup" width="320">
 </p>
 
-<p align="center"><sub>Extension popup for display formula wrapper settings.</sub></p>
+<p align="center"><sub>Extension popup for output format settings.</sub></p>
 
 ## Installation
 
