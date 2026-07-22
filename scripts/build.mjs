@@ -10,8 +10,8 @@ await rm(distDir, { recursive: true, force: true });
 await mkdir(distDir, { recursive: true });
 
 await bundle("src/background.js", "background.js");
-await bundle("src/content/index.js", "content.js");
-await bundle("src/popup/index.js", "popup.js");
+await bundle("src/content/index.ts", "content.js");
+await bundle("src/popup/index.ts", "popup.js");
 
 await copyFile("src/content.css", path.join(distDir, "content.css"));
 await copyFile("src/popup.css", path.join(distDir, "popup.css"));

@@ -13,6 +13,6 @@
     "types": ["chrome", "node"],
     "skipLibCheck": true
   },
-  "include": ["src/**/*.js"],
+  "include": ["src/**/*.js", "src/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

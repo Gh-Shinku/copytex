@@ -1,9 +1,0 @@
-import "../shared/settings.js";
-import "../domain/formatter.js";
-import "../extractor.js";
-import "../selection.js";
-import "../chatgpt.js";
-import "./clipboard.js";
-import "./toast.js";
-import "./floating-button.js";
-import "../content.js";
