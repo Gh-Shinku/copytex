@@ -1,6 +1,7 @@
 (function initCopyTeXContentScript() {
   const extractor = globalThis.CopyTeXExtractor;
   const selectionSerializer = globalThis.CopyTeXSelectionSerializer;
+  const chatGptTools = globalThis.CopyTeXChatGPT;
 
   if (!extractor || !selectionSerializer || globalThis.__copyTeXContentLoaded) {
     return;
@@ -13,6 +14,7 @@
   const DEFAULT_OUTPUT_FORMAT = "markdown";
   const BUTTON_ID = "copytex-floating-button";
   const TOAST_ID = "copytex-toast";
+  const CHATGPT_RESPONSE_COPY_SCAN_DELAY = 250;
 
   let activeFormula = null;
   let contextFormula = null;
@@ -21,6 +23,8 @@
   let toast = null;
   let hideTimer = null;
   let toastTimer = null;
+  let chatGptObserver = null;
+  let chatGptScanTimer = null;
 
   document.addEventListener("pointerover", handlePointerOver, true);
   document.addEventListener("pointerout", handlePointerOut, true);
@@ -31,6 +35,7 @@
   markCurrentSite();
   loadOutputFormatPreference();
   listenForOutputFormatChanges();
+  initChatGptResponseCopy();
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || message.type !== COPY_MESSAGE) {
@@ -213,6 +218,30 @@
     }
   }
 
+  async function copyChatGptResponse(_nativeButton, _copyTeXButton, turn) {
+    if (!turn || !chatGptTools) {
+      showToast("CopyTeX response copy is unavailable", true);
+      return { ok: false, error: "CopyTeX response copy is unavailable" };
+    }
+
+    try {
+      const result = chatGptTools.serializeChatGptTurnToMarkdown(turn, extractor, selectionSerializer, {
+        outputFormat
+      });
+      if (!result.ok || !result.text) {
+        throw new Error(result.error || "No response content found");
+      }
+
+      await writeClipboard(result.text);
+      showToast(`Copied response as ${formatLabel(outputFormat)}`);
+      return { ok: true, text: result.text };
+    } catch (error) {
+      const reason = error && error.message ? error.message : "Copy response failed";
+      showToast(reason, true);
+      return { ok: false, error: reason };
+    }
+  }
+
   async function writeClipboard(text) {
     if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
       try {
@@ -316,5 +345,38 @@
     if (location.hostname === "chat.deepseek.com") {
       document.documentElement.dataset.copytexSite = "deepseek";
     }
+  }
+
+  function initChatGptResponseCopy() {
+    if (!chatGptTools || !chatGptTools.isChatGptHost(location.hostname)) {
+      return;
+    }
+
+    injectChatGptResponseCopyButtons();
+
+    if (typeof MutationObserver !== "function") {
+      return;
+    }
+
+    chatGptObserver = new MutationObserver(scheduleChatGptResponseCopyScan);
+    chatGptObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  function scheduleChatGptResponseCopyScan() {
+    if (chatGptScanTimer) {
+      return;
+    }
+
+    chatGptScanTimer = window.setTimeout(() => {
+      chatGptScanTimer = null;
+      injectChatGptResponseCopyButtons();
+    }, CHATGPT_RESPONSE_COPY_SCAN_DELAY);
+  }
+
+  function injectChatGptResponseCopyButtons() {
+    chatGptTools.injectResponseCopyButtons(document, copyChatGptResponse);
   }
 })();
