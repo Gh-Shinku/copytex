@@ -17,10 +17,27 @@
 
   root.CopyTeXFormatter = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function createFormatter(settings) {
+  /**
+   * @typedef {"markdown" | "latex"} OutputFormat
+   *
+   * @typedef {Object} FormulaExtractionResult
+   * @property {string} latex
+   * @property {boolean} displayMode
+   * @property {string} source
+   *
+   * @typedef {Object} FormatOptions
+   * @property {OutputFormat=} outputFormat
+   */
+
   const DEFAULT_OUTPUT_FORMAT = settings
     ? settings.DEFAULT_OUTPUT_FORMAT
     : "markdown";
 
+  /**
+   * @param {FormulaExtractionResult | null | undefined} extracted
+   * @param {FormatOptions=} options
+   * @returns {string}
+   */
   function formatFormula(extracted, options) {
     if (!extracted || !extracted.latex) {
       return "";
@@ -43,6 +60,11 @@
     return `$${extracted.latex}$`;
   }
 
+  /**
+   * @param {FormulaExtractionResult | null | undefined} extracted
+   * @param {FormatOptions=} options
+   * @returns {string}
+   */
   function formatFormulaForSelection(extracted, options) {
     const text = formatFormula(extracted, options);
     if (extracted && extracted.displayMode && text) {
@@ -52,6 +74,10 @@
     return text;
   }
 
+  /**
+   * @param {FormatOptions=} options
+   * @returns {{ outputFormat: OutputFormat }}
+   */
   function normalizeOutputOptions(options) {
     const outputFormat = options && options.outputFormat;
 
@@ -63,6 +89,10 @@
     };
   }
 
+  /**
+   * @param {unknown} value
+   * @returns {OutputFormat}
+   */
   function fallbackNormalizeOutputFormat(value) {
     return value === "latex" || value === "markdown" ? value : DEFAULT_OUTPUT_FORMAT;
   }

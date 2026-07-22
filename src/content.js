@@ -152,7 +152,7 @@
       showToast(`Copied formula as ${settings.formatOutputFormatLabel(outputFormat)}`);
       return { ok: true, latex: result.latex, text };
     } catch (error) {
-      const reason = error && error.message ? error.message : "Copy failed";
+      const reason = errorMessage(error, "Copy failed");
       return { ok: false, error: reason };
     }
   }
@@ -178,7 +178,7 @@
       showToast(`Copied response as ${settings.formatOutputFormatLabel(outputFormat)}`);
       return { ok: true, text: result.text };
     } catch (error) {
-      const reason = error && error.message ? error.message : "Copy response failed";
+      const reason = errorMessage(error, "Copy response failed");
       showToast(reason, true);
       return { ok: false, error: reason };
     }
@@ -186,6 +186,12 @@
 
   function showToast(message, isError) {
     toast.show(message, isError);
+  }
+
+  function errorMessage(error, fallback) {
+    return error && typeof error === "object" && "message" in error
+      ? String(error.message || fallback)
+      : fallback;
   }
 
   function contains(parent, child) {

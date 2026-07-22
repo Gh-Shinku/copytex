@@ -17,10 +17,28 @@
 
   root.CopyTeXSelectionSerializer = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function createSelectionSerializer(formatter) {
+  /**
+   * @typedef {"markdown" | "latex"} OutputFormat
+   *
+   * @typedef {Object} FormulaExtractionResult
+   * @property {string} latex
+   * @property {boolean} displayMode
+   * @property {string} source
+   *
+   * @typedef {Object} FormatOptions
+   * @property {OutputFormat=} outputFormat
+   */
+
   const ELEMENT_NODE = 1;
   const TEXT_NODE = 3;
   const DOCUMENT_FRAGMENT_NODE = 11;
 
+  /**
+   * @param {Selection | null | undefined} selection
+   * @param {{ findFormulaElement(target: unknown): Element | null, extractLatexFromElement(target: unknown): FormulaExtractionResult | null }} extractor
+   * @param {FormatOptions=} options
+   * @returns {{ handled: boolean, text: string }}
+   */
   function serializeSelectionToLatexText(selection, extractor, options) {
     if (!selection || !extractor || !selection.rangeCount) {
       return { handled: false, text: "" };
@@ -112,14 +130,28 @@
     chunks.push(formatFormulaForSelection(extracted, options));
   }
 
+  /**
+   * @param {FormulaExtractionResult | null | undefined} extracted
+   * @param {FormatOptions=} options
+   * @returns {string}
+   */
   function formatFormulaForSelection(extracted, options) {
     return formatter.formatFormulaForSelection(extracted, options);
   }
 
+  /**
+   * @param {FormulaExtractionResult | null | undefined} extracted
+   * @param {FormatOptions=} options
+   * @returns {string}
+   */
   function formatFormula(extracted, options) {
     return formatter.formatFormula(extracted, options);
   }
 
+  /**
+   * @param {FormatOptions=} options
+   * @returns {{ outputFormat: OutputFormat }}
+   */
   function normalizeOptions(options) {
     return formatter.normalizeOutputOptions(options);
   }

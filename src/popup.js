@@ -1,6 +1,7 @@
 const settings = globalThis.CopyTeXSettings;
 
 const statusElement = document.getElementById("status");
+/** @type {HTMLInputElement[]} */
 const inputs = Array.from(document.querySelectorAll('input[name="outputFormat"]'));
 
 chrome.storage.sync.get(

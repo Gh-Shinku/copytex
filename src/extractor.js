@@ -7,6 +7,13 @@
 
   root.CopyTeXExtractor = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function createExtractor() {
+  /**
+   * @typedef {Object} FormulaExtractionResult
+   * @property {string} latex
+   * @property {boolean} displayMode
+   * @property {string} source
+   */
+
   const KATEX_SELECTOR = ".katex";
   const KATEX_DISPLAY_SELECTORS = [
     ".katex-display",
@@ -22,6 +29,10 @@
   const DEEPSEEK_MARKDOWN_SELECTOR = ".ds-markdown";
   const DEEPSEEK_PARAGRAPH_SELECTOR = ".ds-markdown-paragraph";
 
+  /**
+   * @param {unknown} target
+   * @returns {FormulaExtractionResult | null}
+   */
   function extractLatexFromElement(target) {
     const formulaElement = findFormulaElement(target);
 
@@ -59,6 +70,10 @@
     return null;
   }
 
+  /**
+   * @param {unknown} target
+   * @returns {Element | null}
+   */
   function findFormulaElement(target) {
     if (!isElementLike(target)) {
       return null;
@@ -79,6 +94,10 @@
     return inline || display || null;
   }
 
+  /**
+   * @param {unknown} element
+   * @returns {boolean}
+   */
   function isDisplayFormula(element) {
     return (
       Boolean(closestAny(element, KATEX_DISPLAY_SELECTORS)) ||
@@ -208,6 +227,10 @@
     };
   }
 
+  /**
+   * @param {unknown} value
+   * @returns {string}
+   */
   function cleanLatex(value) {
     if (typeof value !== "string") {
       return "";
