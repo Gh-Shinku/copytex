@@ -9,7 +9,7 @@ const distDir = path.join(root, "dist");
 await rm(distDir, { recursive: true, force: true });
 await mkdir(distDir, { recursive: true });
 
-await bundle("src/background.js", "background.js");
+await bundle("src/background.ts", "background.js");
 await bundle("src/content/index.ts", "content.js");
 await bundle("src/popup/index.ts", "popup.js");
 

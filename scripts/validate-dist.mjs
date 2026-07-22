@@ -33,3 +33,22 @@ for (const file of required) {
 if (manifest.manifest_version !== 3) {
   throw new Error("dist manifest must be Manifest V3");
 }
+
+await assertBuiltFromTypeScript("background.js", ["src/background.ts"]);
+await assertBuiltFromTypeScript("content.js", [
+  "src/chatgpt.ts",
+  "src/content.ts",
+  "src/extractor.ts",
+  "src/selection.ts"
+]);
+await assertBuiltFromTypeScript("popup.js", ["src/popup.ts"]);
+
+async function assertBuiltFromTypeScript(file, sources) {
+  const text = await readFile(path.join(distDir, file), "utf8");
+
+  for (const source of sources) {
+    if (!text.includes(source)) {
+      throw new Error(`${file} was not built from ${source}`);
+    }
+  }
+}
