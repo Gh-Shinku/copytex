@@ -20,11 +20,31 @@ An extension that copies KaTeX and MathJax-rendered formulas as Markdown or LaTe
 
 This extension is only tested on Chrome.
 
-1. Open `chrome://extensions`.
-2. Enable Developer mode.
-3. Click `Load unpacked`.
-4. Select this repository folder.
-5. Open or reload a supported site and test on a response containing rendered math.
+1. Install dependencies:
+
+   ```powershell
+   npm install
+   ```
+
+2. Build the extension:
+
+   ```powershell
+   npm run build
+   ```
+
+3. Open `chrome://extensions`.
+4. Enable Developer mode.
+5. Click `Load unpacked`.
+6. Select the generated `dist/` folder.
+7. Open or reload a supported site and test on a response containing rendered math.
+
+To create a distributable zip, run:
+
+```powershell
+npm run package
+```
+
+The package is written to `release/copytex-v<version>.zip`.
 
 ## Supported Sites
 
