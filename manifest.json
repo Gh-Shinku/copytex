@@ -21,9 +21,14 @@
         "https://zhuanlan.zhihu.com/*"
       ],
       "js": [
+        "src/shared/settings.js",
+        "src/domain/formatter.js",
         "src/extractor.js",
         "src/selection.js",
         "src/chatgpt.js",
+        "src/content/clipboard.js",
+        "src/content/toast.js",
+        "src/content/floating-button.js",
         "src/content.js"
       ],
       "css": ["src/content.css"],

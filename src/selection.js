@@ -1,19 +1,25 @@
 (function registerCopyTeXSelectionSerializer(root, factory) {
-  const api = factory();
+  let formatter = root.CopyTeXFormatter;
+
+  if (!formatter && typeof require === "function") {
+    try {
+      formatter = require("./domain/formatter");
+    } catch (_error) {
+      formatter = null;
+    }
+  }
+
+  const api = factory(formatter);
 
   if (typeof module === "object" && module.exports) {
     module.exports = api;
   }
 
   root.CopyTeXSelectionSerializer = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function createSelectionSerializer() {
+})(typeof globalThis !== "undefined" ? globalThis : this, function createSelectionSerializer(formatter) {
   const ELEMENT_NODE = 1;
   const TEXT_NODE = 3;
   const DOCUMENT_FRAGMENT_NODE = 11;
-
-  const DEFAULT_OPTIONS = {
-    outputFormat: "markdown"
-  };
 
   function serializeSelectionToLatexText(selection, extractor, options) {
     if (!selection || !extractor || !selection.rangeCount) {
@@ -107,45 +113,15 @@
   }
 
   function formatFormulaForSelection(extracted, options) {
-    const text = formatFormula(extracted, options);
-    if (extracted && extracted.displayMode && text) {
-      return `\n${text}\n`;
-    }
-
-    return text;
+    return formatter.formatFormulaForSelection(extracted, options);
   }
 
   function formatFormula(extracted, options) {
-    if (!extracted || !extracted.latex) {
-      return "";
-    }
-
-    const normalizedOptions = normalizeOptions(options);
-
-    if (extracted.displayMode) {
-      if (normalizedOptions.outputFormat === "latex") {
-        return `\\[\n${extracted.latex}\n\\]`;
-      }
-
-      return `$$\n${extracted.latex}\n$$`;
-    }
-
-    if (normalizedOptions.outputFormat === "latex") {
-      return `\\(${extracted.latex}\\)`;
-    }
-
-    return `$${extracted.latex}$`;
+    return formatter.formatFormula(extracted, options);
   }
 
   function normalizeOptions(options) {
-    const outputFormat = options && options.outputFormat;
-
-    return {
-      outputFormat:
-        outputFormat === "latex" || outputFormat === "markdown"
-          ? outputFormat
-          : DEFAULT_OPTIONS.outputFormat
-    };
+    return formatter.normalizeOutputOptions(options);
   }
 
   function textForRange(textNode, range) {

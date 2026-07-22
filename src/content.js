@@ -2,29 +2,49 @@
   const extractor = globalThis.CopyTeXExtractor;
   const selectionSerializer = globalThis.CopyTeXSelectionSerializer;
   const chatGptTools = globalThis.CopyTeXChatGPT;
+  const settings = globalThis.CopyTeXSettings;
+  const clipboard = globalThis.CopyTeXClipboard;
+  const toastTools = globalThis.CopyTeXToast;
+  const floatingButtonTools = globalThis.CopyTeXFloatingButton;
 
-  if (!extractor || !selectionSerializer || globalThis.__copyTeXContentLoaded) {
+  if (
+    !extractor ||
+    !selectionSerializer ||
+    !settings ||
+    !clipboard ||
+    !toastTools ||
+    !floatingButtonTools ||
+    globalThis.__copyTeXContentLoaded
+  ) {
     return;
   }
 
   globalThis.__copyTeXContentLoaded = true;
 
   const COPY_MESSAGE = "COPY_LATEX_FROM_CONTEXT_MENU";
-  const OUTPUT_FORMAT_STORAGE_KEY = "outputFormat";
-  const DEFAULT_OUTPUT_FORMAT = "markdown";
-  const BUTTON_ID = "copytex-floating-button";
-  const TOAST_ID = "copytex-toast";
   const CHATGPT_RESPONSE_COPY_SCAN_DELAY = 250;
 
   let activeFormula = null;
   let contextFormula = null;
-  let outputFormat = DEFAULT_OUTPUT_FORMAT;
-  let floatingButton = null;
-  let toast = null;
-  let hideTimer = null;
-  let toastTimer = null;
+  let outputFormat = settings.DEFAULT_OUTPUT_FORMAT;
   let chatGptObserver = null;
   let chatGptScanTimer = null;
+
+  const toast = toastTools.createToastController({
+    document,
+    window,
+    toastId: "copytex-toast"
+  });
+  const floatingButton = floatingButtonTools.createFloatingButtonController({
+    buttonId: "copytex-floating-button",
+    document,
+    window,
+    onClick: () => copyFormula(activeFormula),
+    onError: (message) => showToast(message, true),
+    onHide: () => {
+      activeFormula = null;
+    }
+  });
 
   document.addEventListener("pointerover", handlePointerOver, true);
   document.addEventListener("pointerout", handlePointerOut, true);
@@ -59,8 +79,8 @@
   });
 
   function handlePointerOver(event) {
-    if (floatingButton && floatingButton.contains(event.target)) {
-      clearHideTimer();
+    if (floatingButton.containsTarget(event.target)) {
+      floatingButton.clearHideTimer();
       return;
     }
 
@@ -70,7 +90,7 @@
     }
 
     activeFormula = formula;
-    showFloatingButton(formula);
+    floatingButton.show(formula);
   }
 
   function handlePointerOut(event) {
@@ -79,14 +99,13 @@
     }
 
     const nextTarget = event.relatedTarget;
-    if (
-      contains(activeFormula, nextTarget) ||
-      (floatingButton && contains(floatingButton, nextTarget))
-    ) {
+    if (contains(activeFormula, nextTarget) || floatingButton.containsTarget(nextTarget)) {
       return;
     }
 
-    scheduleHideFloatingButton();
+    floatingButton.scheduleHide(() => {
+      activeFormula = null;
+    });
   }
 
   function handleContextMenu(event) {
@@ -112,92 +131,12 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     event.clipboardData.setData("text/plain", result.text);
-    showToast(`Copied selection as ${formatLabel(outputFormat)}`);
-  }
-
-  function showFloatingButton(formula) {
-    clearHideTimer();
-    ensureFloatingButton();
-    floatingButton.hidden = false;
-    floatingButton.dataset.copytexReady = "true";
-    positionFloatingButton(formula);
-  }
-
-  function ensureFloatingButton() {
-    if (floatingButton) {
-      return floatingButton;
-    }
-
-    floatingButton = document.createElement("button");
-    floatingButton.id = BUTTON_ID;
-    floatingButton.type = "button";
-    floatingButton.textContent = "Copy TeX";
-    floatingButton.title = "Copy formula";
-    floatingButton.setAttribute("aria-label", "Copy formula");
-    floatingButton.hidden = true;
-
-    floatingButton.addEventListener("pointerover", clearHideTimer);
-    floatingButton.addEventListener("pointerout", scheduleHideFloatingButton);
-    floatingButton.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      copyFormula(activeFormula).then((result) => {
-        if (!result.ok) {
-          showToast(result.error || "Copy failed", true);
-        }
-      });
-    });
-
-    document.documentElement.appendChild(floatingButton);
-    return floatingButton;
-  }
-
-  function positionFloatingButton(formula) {
-    if (!floatingButton || floatingButton.hidden || !formula || !formula.getBoundingClientRect) {
-      return;
-    }
-
-    const rect = formula.getBoundingClientRect();
-    const buttonRect = floatingButton.getBoundingClientRect();
-    const width = buttonRect.width || 88;
-    const height = buttonRect.height || 30;
-    const margin = 8;
-
-    let top = rect.top - height - 6;
-    if (top < margin) {
-      top = rect.bottom + 6;
-    }
-
-    const left = Math.max(
-      margin,
-      Math.min(window.innerWidth - width - margin, rect.right - width)
-    );
-
-    floatingButton.style.left = `${left}px`;
-    floatingButton.style.top = `${Math.max(margin, top)}px`;
+    showToast(`Copied selection as ${settings.formatOutputFormatLabel(outputFormat)}`);
   }
 
   function repositionFloatingButton() {
     if (activeFormula) {
-      positionFloatingButton(activeFormula);
-    }
-  }
-
-  function scheduleHideFloatingButton() {
-    clearHideTimer();
-    hideTimer = window.setTimeout(() => {
-      if (floatingButton) {
-        floatingButton.hidden = true;
-      }
-      activeFormula = null;
-    }, 160);
-  }
-
-  function clearHideTimer() {
-    if (hideTimer) {
-      window.clearTimeout(hideTimer);
-      hideTimer = null;
+      floatingButton.position(activeFormula);
     }
   }
 
@@ -209,8 +148,8 @@
 
     try {
       const text = selectionSerializer.formatFormula(result, { outputFormat });
-      await writeClipboard(text);
-      showToast(`Copied formula as ${formatLabel(outputFormat)}`);
+      await clipboard.writeText(text);
+      showToast(`Copied formula as ${settings.formatOutputFormatLabel(outputFormat)}`);
       return { ok: true, latex: result.latex, text };
     } catch (error) {
       const reason = error && error.message ? error.message : "Copy failed";
@@ -225,15 +164,18 @@
     }
 
     try {
-      const result = chatGptTools.serializeChatGptTurnToMarkdown(turn, extractor, selectionSerializer, {
-        outputFormat
-      });
+      const result = chatGptTools.serializeChatGptTurnToMarkdown(
+        turn,
+        extractor,
+        selectionSerializer,
+        { outputFormat }
+      );
       if (!result.ok || !result.text) {
         throw new Error(result.error || "No response content found");
       }
 
-      await writeClipboard(result.text);
-      showToast(`Copied response as ${formatLabel(outputFormat)}`);
+      await clipboard.writeText(result.text);
+      showToast(`Copied response as ${settings.formatOutputFormatLabel(outputFormat)}`);
       return { ok: true, text: result.text };
     } catch (error) {
       const reason = error && error.message ? error.message : "Copy response failed";
@@ -242,64 +184,8 @@
     }
   }
 
-  async function writeClipboard(text) {
-    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-      try {
-        await navigator.clipboard.writeText(text);
-        return;
-      } catch (_error) {
-        // Fall through to the legacy copy path for focused-document edge cases.
-      }
-    }
-
-    copyViaTextArea(text);
-  }
-
-  function copyViaTextArea(text) {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "");
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    textarea.style.top = "0";
-    document.body.appendChild(textarea);
-    textarea.select();
-    textarea.setSelectionRange(0, textarea.value.length);
-
-    const copied = document.execCommand("copy");
-    textarea.remove();
-
-    if (!copied) {
-      throw new Error("Clipboard write failed");
-    }
-  }
-
   function showToast(message, isError) {
-    ensureToast();
-    toast.textContent = message;
-    toast.dataset.copytexError = isError ? "true" : "false";
-    toast.hidden = false;
-
-    if (toastTimer) {
-      window.clearTimeout(toastTimer);
-    }
-
-    toastTimer = window.setTimeout(() => {
-      toast.hidden = true;
-    }, 1700);
-  }
-
-  function ensureToast() {
-    if (toast) {
-      return toast;
-    }
-
-    toast = document.createElement("div");
-    toast.id = TOAST_ID;
-    toast.setAttribute("role", "status");
-    toast.hidden = true;
-    document.documentElement.appendChild(toast);
-    return toast;
+    toast.show(message, isError);
   }
 
   function contains(parent, child) {
@@ -312,9 +198,11 @@
     }
 
     chrome.storage.sync.get(
-      { [OUTPUT_FORMAT_STORAGE_KEY]: DEFAULT_OUTPUT_FORMAT },
+      { [settings.OUTPUT_FORMAT_STORAGE_KEY]: settings.DEFAULT_OUTPUT_FORMAT },
       (items) => {
-        outputFormat = normalizeOutputFormat(items[OUTPUT_FORMAT_STORAGE_KEY]);
+        outputFormat = settings.normalizeOutputFormat(
+          items[settings.OUTPUT_FORMAT_STORAGE_KEY]
+        );
       }
     );
   }
@@ -325,20 +213,14 @@
     }
 
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== "sync" || !changes[OUTPUT_FORMAT_STORAGE_KEY]) {
+      if (areaName !== "sync" || !changes[settings.OUTPUT_FORMAT_STORAGE_KEY]) {
         return;
       }
 
-      outputFormat = normalizeOutputFormat(changes[OUTPUT_FORMAT_STORAGE_KEY].newValue);
+      outputFormat = settings.normalizeOutputFormat(
+        changes[settings.OUTPUT_FORMAT_STORAGE_KEY].newValue
+      );
     });
-  }
-
-  function normalizeOutputFormat(value) {
-    return value === "latex" || value === "markdown" ? value : DEFAULT_OUTPUT_FORMAT;
-  }
-
-  function formatLabel(value) {
-    return normalizeOutputFormat(value) === "latex" ? "LaTeX" : "Markdown";
   }
 
   function markCurrentSite() {
