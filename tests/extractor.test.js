@@ -5,7 +5,7 @@ const {
   extractLatexFromElement,
   findFormulaElement,
   isDisplayFormula
-} = require("../src/extractor");
+} = require("../.test-build/extractor.cjs");
 
 class NodeStub {
   constructor(tagName, options = {}) {

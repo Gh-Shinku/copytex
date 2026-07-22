@@ -5,7 +5,7 @@ const {
   OUTPUT_FORMAT_STORAGE_KEY,
   formatOutputFormatLabel,
   normalizeOutputFormat
-} = require("../src/shared/settings");
+} = require("../.test-build/shared/settings.cjs");
 
 test("settings expose output format storage defaults", () => {
   assert.equal(OUTPUT_FORMAT_STORAGE_KEY, "outputFormat");

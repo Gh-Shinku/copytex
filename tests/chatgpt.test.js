@@ -5,9 +5,9 @@ const {
   injectResponseCopyButtons,
   isChatGptHost,
   serializeChatGptTurnToMarkdown
-} = require("../src/chatgpt");
-const extractor = require("../src/extractor");
-const selectionSerializer = require("../src/selection");
+} = require("../.test-build/chatgpt.cjs");
+const extractor = require("../.test-build/extractor.cjs");
+const selectionSerializer = require("../.test-build/selection.cjs");
 
 class ElementStub {
   constructor(tagName, attributes = {}, children = []) {

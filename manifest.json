@@ -5,11 +5,11 @@
   "description": "Copy KaTeX and MathJax-rendered formulas as Markdown or LaTeX in supported web pages.",
   "permissions": ["contextMenus", "clipboardWrite", "storage"],
   "background": {
-    "service_worker": "src/background.js"
+    "service_worker": "background.js"
   },
   "action": {
     "default_title": "CopyTeX",
-    "default_popup": "src/popup.html"
+    "default_popup": "popup.html"
   },
   "content_scripts": [
     {
@@ -20,18 +20,8 @@
         "https://www.zhihu.com/*",
         "https://zhuanlan.zhihu.com/*"
       ],
-      "js": [
-        "src/shared/settings.js",
-        "src/domain/formatter.js",
-        "src/extractor.js",
-        "src/selection.js",
-        "src/chatgpt.js",
-        "src/content/clipboard.js",
-        "src/content/toast.js",
-        "src/content/floating-button.js",
-        "src/content.js"
-      ],
-      "css": ["src/content.css"],
+      "js": ["content.js"],
+      "css": ["content.css"],
       "run_at": "document_idle"
     }
   ]

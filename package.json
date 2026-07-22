@@ -4,7 +4,7 @@
     "clean": "rimraf dist release",
     "build": "node scripts/build.mjs",
     "package": "node scripts/package-extension.mjs",
-    "test": "node --test tests\\*.test.js",
+    "test": "node scripts/build-test-modules.mjs && node --test tests\\*.test.js",
     "typecheck": "tsc --noEmit",
     "validate": "npm run typecheck && npm test && npm run build && node scripts/validate-dist.mjs && npm run package"
   },

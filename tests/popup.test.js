@@ -3,8 +3,7 @@ const fs = require("node:fs");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const settingsScript = fs.readFileSync("src/shared/settings.js", "utf8");
-const popupScript = fs.readFileSync("src/popup.js", "utf8");
+const popupScript = fs.readFileSync(".test-build/popup.js", "utf8");
 
 function runPopup(storedValue) {
   const setCalls = [];
@@ -46,7 +45,6 @@ function runPopup(storedValue) {
     }
   };
 
-  vm.runInNewContext(settingsScript, sandbox);
   vm.runInNewContext(popupScript, sandbox);
 
   return { inputs, setCalls, statusElement };

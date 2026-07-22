@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const clipboardScript = fs.readFileSync("src/content/clipboard.js", "utf8");
+const clipboardScript = fs.readFileSync(".test-build/content/clipboard.js", "utf8");
 
 function loadClipboard(sandbox) {
   vm.runInNewContext(clipboardScript, sandbox);

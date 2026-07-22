@@ -1,12 +1,12 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const extractor = require("../src/extractor");
+const extractor = require("../.test-build/extractor.cjs");
 const {
   formatFormula,
   formatFormulaForSelection,
   normalizeOptions,
   serializeSelectionToLatexText
-} = require("../src/selection");
+} = require("../.test-build/selection.cjs");
 
 class NodeStub {
   constructor(tagName, options = {}) {

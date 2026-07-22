@@ -62,7 +62,7 @@ async function buildManifest() {
 
 async function buildPopupHtml() {
   const html = await readFile("src/popup.html", "utf8");
-  return html.replace(/\s*<script src="shared\/settings\.js"><\/script>/, "");
+  return html.replace(/\s*<\/body>/, '\n    <script src="popup.js"></script>\n  </body>');
 }
 
 async function assertRequiredFiles(files) {
