@@ -193,7 +193,8 @@ function serializeInlineNode(node: Node | null, context: MarkdownContext): strin
     if (isIgnoredLink(node, href)) {
       return text;
     }
-    return href ? `[${text}](${href})` : text;
+    const normalizedHref = normalizeLinkHref(href);
+    return normalizedHref ? `[${text}](${normalizedHref})` : text;
   }
 
   if (tag === "img") {
@@ -378,6 +379,29 @@ function isZhidaUrl(value: unknown): boolean {
     return new URL(normalized, "https://www.zhihu.com").hostname === "zhida.zhihu.com";
   } catch (_error) {
     return /^https?:\/\/zhida\.zhihu\.com(?:\/|$)/i.test(normalized);
+  }
+}
+
+function normalizeLinkHref(value: unknown): string {
+  const href = String(value || "").trim();
+  if (!href) {
+    return "";
+  }
+
+  return unwrapZhihuRedirectUrl(href) || href;
+}
+
+function unwrapZhihuRedirectUrl(value: string): string {
+  const normalized = value.startsWith("//") ? `https:${value}` : value;
+  try {
+    const url = new URL(normalized, "https://www.zhihu.com");
+    if (url.hostname !== "link.zhihu.com") {
+      return "";
+    }
+
+    return url.searchParams.get("target") || "";
+  } catch (_error) {
+    return "";
   }
 }
 

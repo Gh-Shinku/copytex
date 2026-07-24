@@ -474,6 +474,65 @@ test("serializes Zhihu rich text selections as Markdown without requiring formul
   });
 });
 
+test("unwraps Zhihu outbound redirect links", () => {
+  const target =
+    "https://www.microsoft.com/en-us/research/blog/deepspeed-extreme-scale-model-training-for-everyone/";
+  const root = el("div", { className: "RichText ztext Post-RichText" }, [
+    el("p", {}, [
+      anchor(`https://link.zhihu.com/?target=${encodeURIComponent(target)}`, [
+        text("DeepSpeed")
+      ])
+    ])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: `[DeepSpeed](${target})`
+  });
+});
+
+test("unwraps protocol-relative Zhihu outbound redirect links", () => {
+  const root = el("div", { className: "RichText ztext Post-RichText" }, [
+    el("p", {}, [
+      anchor("//link.zhihu.com/?target=https%3A%2F%2Fexample.com%2Fpaper", [
+        text("论文")
+      ])
+    ])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "[论文](https://example.com/paper)"
+  });
+});
+
+test("keeps Zhihu outbound redirect links without targets", () => {
+  const href = "https://link.zhihu.com/?utm_source=zhihu";
+  const root = el("div", { className: "RichText ztext Post-RichText" }, [
+    el("p", {}, [anchor(href, [text("空跳转")])])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: `[空跳转](${href})`
+  });
+});
+
 test("serializes Zhihu auto entity links as plain text", () => {
   const root = el("div", { className: "RichText ztext Post-RichText" }, [
     el("p", {}, [
