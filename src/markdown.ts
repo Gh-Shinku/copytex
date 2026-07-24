@@ -190,6 +190,9 @@ function serializeInlineNode(node: Node | null, context: MarkdownContext): strin
   if (tag === "a") {
     const text = serializeInlineChildren(node, context) || getAttribute(node, "href");
     const href = getAttribute(node, "href");
+    if (isIgnoredLink(node, href)) {
+      return text;
+    }
     return href ? `[${text}](${href})` : text;
   }
 
@@ -356,6 +359,28 @@ function getAttribute(element: unknown, name: string): string {
   return "";
 }
 
+function isIgnoredLink(element: Element, href: string): boolean {
+  if (hasClass(element, "RichContent-EntityWord")) {
+    return true;
+  }
+
+  return isZhidaUrl(href);
+}
+
+function isZhidaUrl(value: unknown): boolean {
+  const href = String(value || "").trim();
+  if (!href) {
+    return false;
+  }
+
+  const normalized = href.startsWith("//") ? `https:${href}` : href;
+  try {
+    return new URL(normalized, "https://www.zhihu.com").hostname === "zhida.zhihu.com";
+  } catch (_error) {
+    return /^https?:\/\/zhida\.zhihu\.com(?:\/|$)/i.test(normalized);
+  }
+}
+
 function querySelector(root: unknown, selector: string): Element | null {
   if (root && typeof (root as ParentNode).querySelector === "function") {
     return (root as ParentNode).querySelector(selector);
@@ -422,6 +447,20 @@ function children(node: unknown): Element[] {
 
 function tagName(node: unknown): string {
   return String((node as { tagName?: unknown } | null)?.tagName || "").toLowerCase();
+}
+
+function hasClass(element: unknown, className: string): boolean {
+  if (
+    element &&
+    (element as Element).classList &&
+    typeof (element as Element).classList.contains === "function"
+  ) {
+    return (element as Element).classList.contains(className);
+  }
+
+  return String((element as { className?: unknown } | null)?.className || "")
+    .split(/\s+/)
+    .includes(className);
 }
 
 function isElementLike(value: unknown): value is Element {

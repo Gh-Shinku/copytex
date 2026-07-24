@@ -474,6 +474,67 @@ test("serializes Zhihu rich text selections as Markdown without requiring formul
   });
 });
 
+test("serializes Zhihu auto entity links as plain text", () => {
+  const root = el("div", { className: "RichText ztext Post-RichText" }, [
+    el("p", {}, [
+      text("使用 "),
+      anchor("https://zhida.zhihu.com/search?q=%E8%BF%91%E4%BC%BC%E5%88%86%E6%9E%90", [
+        text("近似分析")
+      ]),
+      text(" 处理。")
+    ])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "使用 近似分析 处理。"
+  });
+});
+
+test("serializes Zhihu entity-word class links as plain text", () => {
+  const entityLink = anchor("https://www.zhihu.com/search?q=LLM", [text("LLM")]);
+  entityLink.className = "RichContent-EntityWord css-b7erz1";
+  const root = el("div", { className: "RichText ztext Post-RichText" }, [
+    el("p", {}, [entityLink])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "LLM"
+  });
+});
+
+test("serializes Zhihu entity links mixed with formulas", () => {
+  const root = el("div", { className: "RichText ztext Post-RichText" }, [
+    el("p", {}, [
+      anchor("//zhida.zhihu.com/search?q=x", [text("近似分析")]),
+      text(" 中 "),
+      zhihuFormula("x"),
+      text(" 成立。")
+    ])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "近似分析 中 $x$ 成立。"
+  });
+});
+
 test("serializes Zhihu rich text selections with MathJax formula source", () => {
   const root = el("div", { className: "RichText ztext Post-RichText" }, [
     el("p", {}, [
