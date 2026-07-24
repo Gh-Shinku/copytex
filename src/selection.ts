@@ -3,6 +3,7 @@ import {
   formatFormulaForSelection as formatFormulaForSelectionSource,
   normalizeOutputOptions
 } from "./domain/formatter";
+import { serializeMarkdown } from "./markdown";
 import type {
   FormatOptions,
   FormulaExtractionResult
@@ -15,6 +16,10 @@ const DOCUMENT_FRAGMENT_NODE = 11;
 interface FormulaExtractor {
   findFormulaElement(target: unknown): Element | null;
   extractLatexFromElement(target: unknown): FormulaExtractionResult | null;
+}
+
+interface FormulaFormatter {
+  formatFormula(extracted: FormulaExtractionResult, options?: FormatOptions): string;
 }
 
 interface SerializationState {
@@ -76,6 +81,52 @@ export function serializeRangeToLatexText(
     foundFormula: state.foundFormula,
     text: cleanSelectionText(chunks.join(""))
   };
+}
+
+export function serializeSelectionToMarkdownText(
+  selection: Selection | null | undefined,
+  extractor: FormulaExtractor,
+  formatter: FormulaFormatter,
+  options?: FormatOptions
+): { handled: boolean; text: string } {
+  if (!selection || !extractor || !formatter || !selection.rangeCount) {
+    return { handled: false, text: "" };
+  }
+
+  const parts: string[] = [];
+
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    const range = selection.getRangeAt(index);
+    if (!range || range.collapsed) {
+      continue;
+    }
+
+    const text = serializeRangeToMarkdownText(range, extractor, formatter, options);
+    if (text) {
+      parts.push(text);
+    }
+  }
+
+  const text = cleanSelectionText(parts.join("\n\n"));
+  return text ? { handled: true, text } : { handled: false, text: "" };
+}
+
+export function serializeRangeToMarkdownText(
+  range: Range,
+  extractor: FormulaExtractor,
+  formatter: FormulaFormatter,
+  options?: FormatOptions
+): string {
+  if (!range || range.collapsed) {
+    return "";
+  }
+
+  const source =
+    typeof range.cloneContents === "function"
+      ? range.cloneContents()
+      : range.commonAncestorContainer;
+
+  return serializeMarkdown(source, extractor, formatter, options);
 }
 
 function serializeNode(
@@ -232,7 +283,9 @@ export const selectionSerializerApi = {
   formatFormula,
   formatFormulaForSelection,
   normalizeOptions,
+  serializeRangeToMarkdownText,
   serializeRangeToLatexText,
+  serializeSelectionToMarkdownText,
   serializeSelectionToLatexText
 };
 

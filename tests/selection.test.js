@@ -5,6 +5,7 @@ const {
   formatFormula,
   formatFormulaForSelection,
   normalizeOptions,
+  serializeSelectionToMarkdownText,
   serializeSelectionToLatexText
 } = require("../.test-build/selection.cjs");
 
@@ -184,6 +185,14 @@ function inlineFormula(latex) {
 
 function displayFormula(latex) {
   return el("span", { className: "katex-display" }, [inlineFormula(latex)]);
+}
+
+function strong(children) {
+  return el("strong", {}, children);
+}
+
+function anchor(href, children) {
+  return el("a", { attributes: { href } }, children);
 }
 
 function deepseekDisplayFormula(latex) {
@@ -441,5 +450,67 @@ test("serializes Zhihu MathJax display wrappers with Markdown delimiters by defa
   assert.deepEqual(result, {
     handled: true,
     text: "$$\n\\sum_{k=1}^n k\n$$"
+  });
+});
+
+test("serializes Zhihu rich text selections as Markdown without requiring formulas", () => {
+  const root = el("div", { className: "RichText ztext Post-RichText" }, [
+    el("h2", {}, [text("优化器")]),
+    el("p", {}, [
+      strong([text("Adam")]),
+      text(" 参考 "),
+      anchor("https://example.com/paper", [text("论文")])
+    ])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "## 优化器\n\n**Adam** 参考 [论文](https://example.com/paper)"
+  });
+});
+
+test("serializes Zhihu rich text selections with MathJax formula source", () => {
+  const root = el("div", { className: "RichText ztext Post-RichText" }, [
+    el("p", {}, [
+      text("当 "),
+      zhihuFormula("\\beta_1=\\beta_2"),
+      text(" 时成立。")
+    ])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "当 $\\beta_1=\\beta_2$ 时成立。"
+  });
+});
+
+test("serializes Zhihu rich text formulas using LaTeX delimiters when configured", () => {
+  const root = el("div", { className: "RichText ztext Post-RichText" }, [
+    el("p", {}, [
+      text("当 "),
+      zhihuFormula("\\beta_1=\\beta_2"),
+      text(" 时成立。")
+    ])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula },
+    { outputFormat: "latex" }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "当 \\(\\beta_1=\\beta_2\\) 时成立。"
   });
 });

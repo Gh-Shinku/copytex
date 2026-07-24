@@ -1,4 +1,5 @@
 import type { FormatOptions, FormulaExtractionResult } from "./shared/types";
+import { serializeMarkdownChildren } from "./markdown";
 
 export const ASSISTANT_TURN_SELECTOR =
   'section[data-testid^="conversation-turn-"][data-turn="assistant"]';
@@ -8,7 +9,6 @@ export const NATIVE_COPY_SELECTOR = 'button[data-testid="copy-turn-action-button
 export const COPYTEX_RESPONSE_COPY_ATTRIBUTE = "data-copytex-response-copy";
 const COPYTEX_NATIVE_INJECTED_ATTRIBUTE = "data-copytex-response-copy-injected";
 const ELEMENT_NODE = 1;
-const TEXT_NODE = 3;
 
 interface ExtractorApi {
   findFormulaElement(node: unknown): Element | null;
@@ -17,13 +17,6 @@ interface ExtractorApi {
 
 interface FormulaFormatter {
   formatFormula(extracted: FormulaExtractionResult, options?: FormatOptions): string;
-}
-
-interface MarkdownContext {
-  extractor: ExtractorApi;
-  formatter: FormulaFormatter;
-  options: FormatOptions;
-  emittedFormulas: WeakSet<Element> | null;
 }
 
 export interface ChatGptApi {
@@ -124,301 +117,11 @@ export function serializeChatGptTurnToMarkdown(
     return { ok: false, text: "", error: "No response content found" };
   }
 
-  const context: MarkdownContext = {
-    extractor,
-    formatter,
-    options: options || {},
-    emittedFormulas: typeof WeakSet === "function" ? new WeakSet<Element>() : null
-  };
-  const text = cleanMarkdown(serializeBlockChildren(messageRoot, context));
+  const text = serializeMarkdownChildren(messageRoot, extractor, formatter, options);
 
   return text
     ? { ok: true, text }
     : { ok: false, text: "", error: "No response content found" };
-}
-
-function serializeBlockChildren(node: Node, context: MarkdownContext): string {
-  const blocks: string[] = [];
-
-  for (const child of childNodes(node)) {
-    const text = serializeBlockNode(child, context);
-    if (text) {
-      blocks.push(text);
-    }
-  }
-
-  return blocks.join("\n\n");
-}
-
-function serializeBlockNode(node: Node | null, context: MarkdownContext): string {
-  if (!node) {
-    return "";
-  }
-
-  if (node.nodeType === TEXT_NODE) {
-    return cleanInlineText(node.nodeValue || node.textContent || "");
-  }
-
-  if (!isElementLike(node)) {
-    return "";
-  }
-
-  const formula = findFormulaElement(node, context);
-  if (formula === node) {
-    return formatFormulaElement(formula, context);
-  }
-
-  const tag = tagName(node);
-  if (tag === "p") {
-    return cleanParagraphText(serializeInlineChildren(node, context));
-  }
-
-  if (/^h[1-6]$/.test(tag)) {
-    const level = Number(tag.slice(1));
-    const text = cleanInlineText(serializeInlineChildren(node, context));
-    return text ? `${"#".repeat(level)} ${text}` : "";
-  }
-
-  if (tag === "ul" || tag === "ol") {
-    return serializeList(node, tag === "ol", context, 0);
-  }
-
-  if (tag === "li") {
-    return cleanInlineText(serializeInlineChildren(node, context));
-  }
-
-  if (tag === "blockquote") {
-    const quote = serializeBlockChildren(node, context);
-    return quote
-      .split("\n")
-      .map((line) => (line ? `> ${line}` : ">"))
-      .join("\n");
-  }
-
-  if (tag === "pre") {
-    return serializeCodeBlock(node);
-  }
-
-  if (tag === "hr") {
-    return "---";
-  }
-
-  if (tag === "table") {
-    return serializeTable(node, context);
-  }
-
-  if (tag === "br") {
-    return "\n";
-  }
-
-  return hasBlockChildren(node)
-    ? serializeBlockChildren(node, context)
-    : cleanInlineText(serializeInlineChildren(node, context));
-}
-
-function serializeInlineChildren(node: Node, context: MarkdownContext): string {
-  return childNodes(node)
-    .map((child) => serializeInlineNode(child, context))
-    .join("");
-}
-
-function serializeInlineNode(node: Node | null, context: MarkdownContext): string {
-  if (!node) {
-    return "";
-  }
-
-  if (node.nodeType === TEXT_NODE) {
-    return node.nodeValue || node.textContent || "";
-  }
-
-  if (!isElementLike(node)) {
-    return "";
-  }
-
-  const formula = findFormulaElement(node, context);
-  if (formula) {
-    return formatFormulaElement(formula, context);
-  }
-
-  const tag = tagName(node);
-  if (tag === "br") {
-    return "\n";
-  }
-
-  if (tag === "strong" || tag === "b") {
-    const text = serializeInlineChildren(node, context);
-    return text ? `**${text}**` : "";
-  }
-
-  if (tag === "em" || tag === "i") {
-    const text = serializeInlineChildren(node, context);
-    return text ? `*${text}*` : "";
-  }
-
-  if (tag === "code") {
-    return formatInlineCode(node.textContent || "");
-  }
-
-  if (tag === "a") {
-    const text = serializeInlineChildren(node, context) || getAttribute(node, "href");
-    const href = getAttribute(node, "href");
-    return href ? `[${text}](${href})` : text;
-  }
-
-  if (tag === "img") {
-    const alt = getAttribute(node, "alt");
-    const src = getAttribute(node, "src");
-    return src ? `![${alt}](${src})` : alt;
-  }
-
-  return serializeInlineChildren(node, context);
-}
-
-function serializeList(
-  listNode: Element,
-  ordered: boolean,
-  context: MarkdownContext,
-  depth: number
-): string {
-  const lines: string[] = [];
-  const items = children(listNode).filter((child) => tagName(child) === "li");
-
-  items.forEach((item, index) => {
-    const prefix = `${"  ".repeat(depth)}${ordered ? `${index + 1}. ` : "- "}`;
-    const parts: string[] = [];
-    const nested: string[] = [];
-
-    for (const child of childNodes(item)) {
-      const tag = tagName(child);
-      if (tag === "ul" || tag === "ol") {
-        nested.push(serializeList(child as Element, tag === "ol", context, depth + 1));
-      } else if (isBlockElement(child) && tag !== "p") {
-        parts.push(serializeBlockNode(child, context));
-      } else {
-        parts.push(serializeInlineNode(child, context));
-      }
-    }
-
-    const content = cleanInlineText(parts.join(""));
-    lines.push(`${prefix}${content}`);
-
-    for (const nestedList of nested) {
-      if (nestedList) {
-        lines.push(nestedList);
-      }
-    }
-  });
-
-  return lines.join("\n");
-}
-
-function serializeCodeBlock(pre: Element): string {
-  const code = querySelector(pre, "code") || pre;
-  const language = languageFromCodeElement(code);
-  return `\`\`\`${language}\n${String(code.textContent || "").trimEnd()}\n\`\`\``;
-}
-
-function languageFromCodeElement(code: Element): string {
-  const className = String((code as { className?: unknown }).className || "");
-  const match = className.match(/(?:^|\s)language-([^\s]+)/);
-  return match ? match[1] : "";
-}
-
-function serializeTable(table: Element, context: MarkdownContext): string {
-  const rows = querySelectorAll(table, "tr").map((row) =>
-    children(row).filter((cell) => tagName(cell) === "th" || tagName(cell) === "td")
-  );
-  const nonEmptyRows = rows.filter((row) => row.length);
-  if (!nonEmptyRows.length) {
-    return "";
-  }
-
-  const header = nonEmptyRows[0].map((cell) =>
-    cleanTableCell(serializeInlineChildren(cell, context))
-  );
-  const body = nonEmptyRows.slice(1).map((row) =>
-    row.map((cell) => cleanTableCell(serializeInlineChildren(cell, context)))
-  );
-  const separator = header.map(() => "---");
-  const lines = [
-    markdownTableRow(header),
-    markdownTableRow(separator),
-    ...body.map(markdownTableRow)
-  ];
-
-  return lines.join("\n");
-}
-
-function markdownTableRow(cells: string[]): string {
-  return `| ${cells.join(" | ")} |`;
-}
-
-function cleanTableCell(text: string): string {
-  return cleanInlineText(text).replace(/\|/g, "\\|");
-}
-
-function findFormulaElement(node: Node, context: MarkdownContext): Element | null {
-  if (!context.extractor || typeof context.extractor.findFormulaElement !== "function") {
-    return null;
-  }
-
-  const formula = context.extractor.findFormulaElement(node);
-  if (!formula) {
-    return null;
-  }
-
-  if (context.emittedFormulas && context.emittedFormulas.has(formula)) {
-    return null;
-  }
-
-  return formula;
-}
-
-function formatFormulaElement(formula: Element, context: MarkdownContext): string {
-  const extracted = context.extractor.extractLatexFromElement(formula);
-  if (!extracted || !extracted.latex) {
-    return "";
-  }
-
-  if (context.emittedFormulas) {
-    context.emittedFormulas.add(formula);
-  }
-
-  return context.formatter.formatFormula(extracted, context.options);
-}
-
-function formatInlineCode(text: unknown): string {
-  const value = String(text || "");
-  const backtickRuns = value.match(/`+/g) || [];
-  const fenceLength = Math.max(1, ...backtickRuns.map((run) => run.length + 1));
-  const fence = "`".repeat(fenceLength);
-  return `${fence}${value}${fence}`;
-}
-
-function hasBlockChildren(node: Element): boolean {
-  return children(node).some(isBlockElement);
-}
-
-function isBlockElement(node: Node): boolean {
-  return /^(blockquote|div|h[1-6]|hr|ol|p|pre|table|ul)$/.test(tagName(node));
-}
-
-function cleanMarkdown(text: unknown): string {
-  return String(text || "")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function cleanInlineText(text: unknown): string {
-  return String(text || "")
-    .replace(/[ \t\n]+/g, " ")
-    .trim();
-}
-
-function cleanParagraphText(text: unknown): string {
-  const value = String(text || "");
-  return value.includes("\n") ? cleanMarkdown(value) : cleanInlineText(value);
 }
 
 function closest(element: unknown, selector: string): Element | null {
@@ -529,12 +232,6 @@ function childNodes(node: unknown): Node[] {
   return Array.from(((node as { childNodes?: Node[]; children?: Node[] } | null) &&
     ((node as { childNodes?: Node[]; children?: Node[] }).childNodes ||
       (node as { childNodes?: Node[]; children?: Node[] }).children)) || []);
-}
-
-function children(node: unknown): Element[] {
-  return Array.from((node as { children?: Element[] } | null)?.children || []).filter(
-    isElementLike
-  );
 }
 
 function tagName(node: unknown): string {

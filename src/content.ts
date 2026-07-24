@@ -14,6 +14,8 @@ import { selectionSerializerApi } from "./selection";
 
 const COPY_MESSAGE = "COPY_LATEX_FROM_CONTEXT_MENU";
 const CHATGPT_RESPONSE_COPY_SCAN_DELAY = 250;
+const ZHIHU_RICH_TEXT_SELECTOR = ".RichText.ztext";
+const ZHIHU_EDITABLE_SELECTOR = '.Editable, [contenteditable="true"], input, textarea';
 
 interface RuntimeCopyMessage {
   type?: string;
@@ -125,8 +127,18 @@ function initCopyTeXContentScript(): void {
       return;
     }
 
+    const selection = window.getSelection();
+    const zhihuResult = serializeZhihuMarkdownSelection(selection);
+    if (zhihuResult.handled && zhihuResult.text) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      event.clipboardData.setData("text/plain", zhihuResult.text);
+      showToast(`Copied selection as ${formatOutputFormatLabel(outputFormat)}`);
+      return;
+    }
+
     const result = selectionSerializerApi.serializeSelectionToLatexText(
-      window.getSelection(),
+      selection,
       extractorApi,
       { outputFormat }
     );
@@ -139,6 +151,21 @@ function initCopyTeXContentScript(): void {
     event.stopImmediatePropagation();
     event.clipboardData.setData("text/plain", result.text);
     showToast(`Copied selection as ${formatOutputFormatLabel(outputFormat)}`);
+  }
+
+  function serializeZhihuMarkdownSelection(
+    selection: Selection | null
+  ): { handled: boolean; text: string } {
+    if (!isZhihuHost(location.hostname) || !isZhihuRichTextSelection(selection)) {
+      return { handled: false, text: "" };
+    }
+
+    return selectionSerializerApi.serializeSelectionToMarkdownText(
+      selection,
+      extractorApi,
+      selectionSerializerApi,
+      { outputFormat }
+    );
   }
 
   function repositionFloatingButton(): void {
@@ -270,6 +297,52 @@ function initCopyTeXContentScript(): void {
 
 function contains(parent: Node | null, child: EventTarget | null): boolean {
   return Boolean(parent && child instanceof Node && (parent === child || parent.contains(child)));
+}
+
+function isZhihuHost(hostname: string): boolean {
+  return hostname === "www.zhihu.com" || hostname === "zhuanlan.zhihu.com";
+}
+
+function isZhihuRichTextSelection(selection: Selection | null): boolean {
+  if (!selection || !selection.rangeCount) {
+    return false;
+  }
+
+  let hasHandledRange = false;
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    const range = selection.getRangeAt(index);
+    if (!range || range.collapsed) {
+      continue;
+    }
+
+    const startRoot = findZhihuRichTextRoot(range.startContainer);
+    const endRoot = findZhihuRichTextRoot(range.endContainer);
+    if (!startRoot || startRoot !== endRoot) {
+      return false;
+    }
+
+    hasHandledRange = true;
+  }
+
+  return hasHandledRange;
+}
+
+function findZhihuRichTextRoot(node: Node | null): Element | null {
+  const element = nodeToElement(node);
+  const root = element?.closest(ZHIHU_RICH_TEXT_SELECTOR) || null;
+  if (!root || root.closest(ZHIHU_EDITABLE_SELECTOR)) {
+    return null;
+  }
+
+  return root;
+}
+
+function nodeToElement(node: Node | null): Element | null {
+  if (!node) {
+    return null;
+  }
+
+  return node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
 }
 
 function errorMessage(error: unknown, fallback: string): string {
