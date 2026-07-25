@@ -1,6 +1,6 @@
 # CopyTeX
 
-An extension that copies KaTeX and MathJax-rendered formulas as Markdown or LaTeX on supported web pages.
+An extension that copies KaTeX, MathJax, and MediaWiki-rendered formulas as Markdown or LaTeX on supported web pages.
 
 ## Preview
 
@@ -52,3 +52,4 @@ The package is written to `release/copytex-v<version>.zip`.
 - `https://chat.deepseek.com/`
 - `https://www.zhihu.com/`
 - `https://zhuanlan.zhihu.com/`
+- `https://*.wikipedia.org/`

@@ -96,7 +96,15 @@ function serializeBlockNode(node: Node | null, context: MarkdownContext): string
     return formatFormulaElement(formula, context);
   }
 
+  if (isIgnoredNode(node)) {
+    return "";
+  }
+
   const tag = tagName(node);
+  if (tag === "style" || tag === "script" || tag === "link") {
+    return "";
+  }
+
   if (tag === "p") {
     return cleanParagraphText(serializeInlineChildren(node, context));
   }
@@ -109,6 +117,14 @@ function serializeBlockNode(node: Node | null, context: MarkdownContext): string
 
   if (tag === "ul" || tag === "ol") {
     return serializeList(node, tag === "ol", context, 0);
+  }
+
+  if (tag === "dl") {
+    return serializeDefinitionList(node, context);
+  }
+
+  if (tag === "dt" || tag === "dd") {
+    return cleanParagraphText(serializeInlineChildren(node, context));
   }
 
   if (tag === "li") {
@@ -133,6 +149,10 @@ function serializeBlockNode(node: Node | null, context: MarkdownContext): string
 
   if (tag === "table") {
     return serializeTable(node, context);
+  }
+
+  if (tag === "figure") {
+    return serializeFigure(node, context);
   }
 
   if (tag === "br") {
@@ -168,7 +188,15 @@ function serializeInlineNode(node: Node | null, context: MarkdownContext): strin
     return formatFormulaElement(formula, context);
   }
 
+  if (isIgnoredNode(node)) {
+    return "";
+  }
+
   const tag = tagName(node);
+  if (tag === "style" || tag === "script" || tag === "link") {
+    return "";
+  }
+
   if (tag === "br") {
     return "\n";
   }
@@ -187,6 +215,11 @@ function serializeInlineNode(node: Node | null, context: MarkdownContext): strin
     return formatInlineCode(node.textContent || "");
   }
 
+  if (tag === "sub" || tag === "sup") {
+    const text = serializeInlineChildren(node, context);
+    return text ? `<${tag}>${text}</${tag}>` : "";
+  }
+
   if (tag === "a") {
     const text = serializeInlineChildren(node, context) || getAttribute(node, "href");
     const href = getAttribute(node, "href");
@@ -200,6 +233,9 @@ function serializeInlineNode(node: Node | null, context: MarkdownContext): strin
   if (tag === "img") {
     const alt = getAttribute(node, "alt");
     const src = getAttribute(node, "src");
+    if (isMediaWikiFileImage(node)) {
+      return alt;
+    }
     return src ? `![${alt}](${src})` : alt;
   }
 
@@ -244,16 +280,47 @@ function serializeList(
   return lines.join("\n");
 }
 
+function serializeDefinitionList(listNode: Element, context: MarkdownContext): string {
+  return childNodes(listNode)
+    .map((child) => {
+      const tag = tagName(child);
+      if (tag === "dt") {
+        const text = cleanInlineText(serializeInlineChildren(child, context));
+        return text ? `**${text}**` : "";
+      }
+      if (tag === "dd") {
+        return cleanParagraphText(serializeInlineChildren(child, context));
+      }
+      return serializeBlockNode(child, context);
+    })
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function serializeCodeBlock(pre: Element): string {
   const code = querySelector(pre, "code") || pre;
-  const language = languageFromCodeElement(code);
+  const language =
+    languageFromCodeElement(code) ||
+    languageFromCodeElement(pre) ||
+    languageFromCodeElement(parentElement(pre));
   return `\`\`\`${language}\n${String(code.textContent || "").trimEnd()}\n\`\`\``;
 }
 
-function languageFromCodeElement(code: Element): string {
-  const className = String((code as { className?: unknown }).className || "");
-  const match = className.match(/(?:^|\s)language-([^\s]+)/);
+function languageFromCodeElement(code: Element | null): string {
+  const className = String((code as { className?: unknown } | null)?.className || "");
+  const match = className.match(/(?:^|\s)(?:language-|mw-highlight-lang-)([^\s]+)/);
   return match ? match[1] : "";
+}
+
+function serializeFigure(figure: Element, context: MarkdownContext): string {
+  const caption = querySelector(figure, "figcaption");
+  const captionText = caption ? cleanParagraphText(serializeInlineChildren(caption, context)) : "";
+  if (captionText) {
+    return captionText;
+  }
+
+  const image = querySelector(figure, "img");
+  return image ? cleanInlineText(getAttribute(image, "alt")) : "";
 }
 
 function serializeTable(table: Element, context: MarkdownContext): string {
@@ -358,6 +425,29 @@ function getAttribute(element: unknown, name: string): string {
     return (element as Element).getAttribute(name) || "";
   }
   return "";
+}
+
+function isIgnoredNode(element: Element): boolean {
+  const tag = tagName(element);
+  if (tag === "style" || tag === "script" || tag === "link") {
+    return true;
+  }
+
+  if (getAttribute(element, "aria-hidden") === "true") {
+    return true;
+  }
+
+  return [
+    "mw-editsection",
+    "reference",
+    "noprint",
+    "metadata",
+    "navbox"
+  ].some((className) => hasClass(element, className));
+}
+
+function isMediaWikiFileImage(element: Element): boolean {
+  return hasClass(element, "mw-file-element") || Boolean(closest(element, "figure"));
 }
 
 function isIgnoredLink(element: Element, href: string): boolean {
@@ -473,6 +563,12 @@ function tagName(node: unknown): string {
   return String((node as { tagName?: unknown } | null)?.tagName || "").toLowerCase();
 }
 
+function parentElement(node: unknown): Element | null {
+  return ((node as { parentElement?: Element | null } | null)?.parentElement ||
+    (node as { parentNode?: Element | null } | null)?.parentNode ||
+    null) as Element | null;
+}
+
 function hasClass(element: unknown, className: string): boolean {
   if (
     element &&
@@ -485,6 +581,42 @@ function hasClass(element: unknown, className: string): boolean {
   return String((element as { className?: unknown } | null)?.className || "")
     .split(/\s+/)
     .includes(className);
+}
+
+function closest(element: unknown, selector: string): Element | null {
+  if (!isElementLike(element)) {
+    return null;
+  }
+
+  if (typeof element.closest === "function") {
+    return element.closest(selector);
+  }
+
+  let cursor: Element | Node | null = element;
+  while (cursor) {
+    if (matches(cursor, selector)) {
+      return cursor as Element;
+    }
+    cursor = cursor.parentElement || cursor.parentNode || null;
+  }
+
+  return null;
+}
+
+function matches(element: unknown, selector: string): boolean {
+  if (!isElementLike(element)) {
+    return false;
+  }
+
+  if (typeof element.matches === "function") {
+    return element.matches(selector);
+  }
+
+  if (selector.startsWith(".")) {
+    return hasClass(element, selector.slice(1));
+  }
+
+  return tagName(element) === selector.toLowerCase();
 }
 
 function isElementLike(value: unknown): value is Element {

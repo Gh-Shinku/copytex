@@ -77,7 +77,7 @@ class NodeStub {
     const all = [];
     walk(this, (node) => all.push(node));
 
-    if (selector === "annotation" || selector === "script") {
+    if (/^[a-z][a-z0-9-]*$/i.test(selector)) {
       return all.filter((node) => node.matches(selector));
     }
 
@@ -288,6 +288,58 @@ test("decodes basic HTML entities in Zhihu data-tex attributes", () => {
   });
 
   assert.equal(extractLatexFromElement(formula).latex, "a & b");
+});
+
+test("extracts raw TeX from MediaWiki math annotations", () => {
+  const formula = node("span", { className: "mwe-math-element mwe-math-element-inline" }, [
+    node("math", {
+      attributes: { alttext: "{\\displaystyle x}" }
+    }, [
+      node("annotation", {
+        attributes: { encoding: "application/x-tex" },
+        textContent: "{\\displaystyle \\mathbf {B} (t)}"
+      })
+    ])
+  ]);
+
+  assert.deepEqual(extractLatexFromElement(formula), {
+    latex: "\\mathbf {B} (t)",
+    displayMode: false,
+    source: "mediawiki"
+  });
+});
+
+test("extracts MediaWiki math from fallback image alt text", () => {
+  const formula = node("span", { className: "mwe-math-element mwe-math-element-inline" }, [
+    node("img", {
+      attributes: { alt: "{\\displaystyle n}" },
+      className: "mwe-math-fallback-image-inline"
+    })
+  ]);
+
+  assert.deepEqual(extractLatexFromElement(formula), {
+    latex: "n",
+    displayMode: false,
+    source: "mediawiki"
+  });
+});
+
+test("marks MediaWiki definition-list formulas as display mode", () => {
+  const formula = node("span", { className: "mwe-math-element mwe-math-element-inline" }, [
+    node("annotation", {
+      attributes: { encoding: "application/x-tex" },
+      textContent: "{\\displaystyle a^2+b^2=c^2}"
+    })
+  ]);
+  node("dl", {}, [node("dd", {}, [formula])]);
+
+  assert.equal(findFormulaElement(formula), formula);
+  assert.equal(isDisplayFormula(formula), true);
+  assert.deepEqual(extractLatexFromElement(formula), {
+    latex: "a^2+b^2=c^2",
+    displayMode: true,
+    source: "mediawiki"
+  });
 });
 
 test("falls back to nearby math/tex scripts", () => {

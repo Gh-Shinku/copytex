@@ -5,7 +5,8 @@ const COPYTEX_SUPPORTED_PATTERNS = [
   "https://chat.openai.com/*",
   "https://chat.deepseek.com/*",
   "https://www.zhihu.com/*",
-  "https://zhuanlan.zhihu.com/*"
+  "https://zhuanlan.zhihu.com/*",
+  "https://*.wikipedia.org/*"
 ];
 
 chrome.runtime.onInstalled.addListener(() => {

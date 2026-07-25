@@ -107,7 +107,7 @@ export function serializeSelectionToMarkdownText(
     }
   }
 
-  const text = cleanSelectionText(parts.join("\n\n"));
+  const text = cleanMarkdownSelectionText(parts.join("\n\n"));
   return text ? { handled: true, text } : { handled: false, text: "" };
 }
 
@@ -228,6 +228,14 @@ export function cleanSelectionText(text: unknown): string {
     .replace(/\r\n?/g, "\n")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function cleanMarkdownSelectionText(text: unknown): string {
+  return String(text || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

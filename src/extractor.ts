@@ -12,6 +12,8 @@ const ZHIHU_DISPLAY_SELECTORS = [
   ".MathJax_Display",
   ".mjx-display"
 ];
+const MEDIAWIKI_MATH_SELECTOR = ".mwe-math-element";
+const MEDIAWIKI_DISPLAY_SELECTORS = [".mwe-math-element-block", ".mwe-math-display"];
 const DEEPSEEK_MARKDOWN_SELECTOR = ".ds-markdown";
 const DEEPSEEK_PARAGRAPH_SELECTOR = ".ds-markdown-paragraph";
 
@@ -33,6 +35,15 @@ export function extractLatexFromElement(target: unknown): FormulaExtractionResul
       latex: zhihuLatex,
       displayMode: isZhihuDisplayFormula(formulaElement),
       source: "zhihu-data-tex"
+    };
+  }
+
+  const mediaWikiLatex = findMediaWikiLatex(formulaElement);
+  if (mediaWikiLatex) {
+    return {
+      latex: mediaWikiLatex,
+      displayMode: isMediaWikiDisplayFormula(formulaElement),
+      source: "mediawiki"
     };
   }
 
@@ -65,9 +76,14 @@ export function findFormulaElement(target: unknown): Element | null {
   const display = closestAny(target, KATEX_DISPLAY_SELECTORS);
   const inline = closest(target, KATEX_SELECTOR);
   const zhihu = closest(target, ZHIHU_MATH_SELECTOR);
+  const mediawiki = closest(target, MEDIAWIKI_MATH_SELECTOR);
 
   if (zhihu) {
     return zhihu;
+  }
+
+  if (mediawiki) {
+    return mediawiki;
   }
 
   if (display && (!inline || contains(display, inline))) {
@@ -81,6 +97,7 @@ export function isDisplayFormula(element: unknown): boolean {
   return (
     Boolean(closestAny(element, KATEX_DISPLAY_SELECTORS)) ||
     isZhihuDisplayFormula(element) ||
+    isMediaWikiDisplayFormula(element) ||
     isDeepSeekDisplayFormula(element)
   );
 }
@@ -103,6 +120,40 @@ function findZhihuDataTex(root: unknown): string | null {
   return latex || null;
 }
 
+function findMediaWikiLatex(root: unknown): string | null {
+  const formula = matches(root, MEDIAWIKI_MATH_SELECTOR)
+    ? root
+    : closest(root, MEDIAWIKI_MATH_SELECTOR);
+  if (!formula) {
+    return null;
+  }
+
+  const annotationLatex = findAnnotationLatex(formula);
+  if (annotationLatex) {
+    return cleanMediaWikiLatex(annotationLatex);
+  }
+
+  const math = querySelector(formula, "math");
+  const altText = math ? cleanMediaWikiLatex(getAttribute(math, "alttext")) : "";
+  if (altText) {
+    return altText;
+  }
+
+  const image = querySelector(formula, "img");
+  const alt = image ? cleanMediaWikiLatex(getAttribute(image, "alt")) : "";
+  return alt || null;
+}
+
+function cleanMediaWikiLatex(value: unknown): string {
+  const latex = cleanLatex(decodeHtmlAttribute(value));
+  const wrapped = latex.match(/^\{\\(?:displaystyle|textstyle)\s+([\s\S]*)\}$/);
+  if (wrapped) {
+    return cleanLatex(wrapped[1]);
+  }
+
+  return cleanLatex(latex.replace(/^\\(?:displaystyle|textstyle)\s+/, ""));
+}
+
 function isZhihuDisplayFormula(element: unknown): boolean {
   const formula = matches(element, ZHIHU_MATH_SELECTOR)
     ? element
@@ -122,6 +173,27 @@ function isZhihuDisplayFormula(element: unknown): boolean {
 
   const scriptResult = findScriptLatexInside(formula);
   return Boolean(scriptResult && scriptResult.displayMode);
+}
+
+function isMediaWikiDisplayFormula(element: unknown): boolean {
+  const formula = matches(element, MEDIAWIKI_MATH_SELECTOR)
+    ? element
+    : closest(element, MEDIAWIKI_MATH_SELECTOR);
+  if (!formula) {
+    return false;
+  }
+
+  if (closestAny(formula, MEDIAWIKI_DISPLAY_SELECTORS)) {
+    return true;
+  }
+
+  const definition = closest(formula, "dd") || closest(formula, "dt");
+  if (!definition) {
+    return false;
+  }
+
+  const formulaChild = directChildWithin(definition, formula);
+  return Boolean(formulaChild && isFormulaOnlyContainer(definition, formulaChild));
 }
 
 function findAnnotationLatex(root: unknown): string | null {
@@ -291,7 +363,11 @@ function isDeepSeekDisplayFormula(element: unknown): boolean {
 }
 
 function isFormulaOnlyDeepSeekParagraph(paragraph: Element, formulaChild: Element | Node): boolean {
-  const children = Array.from(paragraph.children || []);
+  return isFormulaOnlyContainer(paragraph, formulaChild);
+}
+
+function isFormulaOnlyContainer(container: Element, formulaChild: Element | Node): boolean {
+  const children = Array.from(container.children || []);
   let hasFormula = false;
 
   for (const child of children) {

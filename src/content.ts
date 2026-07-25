@@ -16,6 +16,8 @@ const COPY_MESSAGE = "COPY_LATEX_FROM_CONTEXT_MENU";
 const CHATGPT_RESPONSE_COPY_SCAN_DELAY = 250;
 const ZHIHU_RICH_TEXT_SELECTOR = ".RichText.ztext";
 const ZHIHU_EDITABLE_SELECTOR = '.Editable, [contenteditable="true"], input, textarea';
+const WIKIPEDIA_ARTICLE_SELECTOR = "#mw-content-text .mw-parser-output";
+const WIKIPEDIA_EDITABLE_SELECTOR = '[contenteditable="true"], textarea, input';
 
 interface RuntimeCopyMessage {
   type?: string;
@@ -137,6 +139,15 @@ function initCopyTeXContentScript(): void {
       return;
     }
 
+    const wikipediaResult = serializeWikipediaMarkdownSelection(selection);
+    if (wikipediaResult.handled && wikipediaResult.text) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      event.clipboardData.setData("text/plain", wikipediaResult.text);
+      showToast(`Copied selection as ${formatOutputFormatLabel(outputFormat)}`);
+      return;
+    }
+
     const result = selectionSerializerApi.serializeSelectionToLatexText(
       selection,
       extractorApi,
@@ -157,6 +168,21 @@ function initCopyTeXContentScript(): void {
     selection: Selection | null
   ): { handled: boolean; text: string } {
     if (!isZhihuHost(location.hostname) || !isZhihuRichTextSelection(selection)) {
+      return { handled: false, text: "" };
+    }
+
+    return selectionSerializerApi.serializeSelectionToMarkdownText(
+      selection,
+      extractorApi,
+      selectionSerializerApi,
+      { outputFormat }
+    );
+  }
+
+  function serializeWikipediaMarkdownSelection(
+    selection: Selection | null
+  ): { handled: boolean; text: string } {
+    if (!isWikipediaHost(location.hostname) || !isWikipediaArticleSelection(selection)) {
       return { handled: false, text: "" };
     }
 
@@ -303,6 +329,10 @@ function isZhihuHost(hostname: string): boolean {
   return hostname === "www.zhihu.com" || hostname === "zhuanlan.zhihu.com";
 }
 
+function isWikipediaHost(hostname: string): boolean {
+  return hostname === "wikipedia.org" || hostname.endsWith(".wikipedia.org");
+}
+
 function isZhihuRichTextSelection(selection: Selection | null): boolean {
   if (!selection || !selection.rangeCount) {
     return false;
@@ -331,6 +361,40 @@ function findZhihuRichTextRoot(node: Node | null): Element | null {
   const element = nodeToElement(node);
   const root = element?.closest(ZHIHU_RICH_TEXT_SELECTOR) || null;
   if (!root || root.closest(ZHIHU_EDITABLE_SELECTOR)) {
+    return null;
+  }
+
+  return root;
+}
+
+function isWikipediaArticleSelection(selection: Selection | null): boolean {
+  if (!selection || !selection.rangeCount) {
+    return false;
+  }
+
+  let hasHandledRange = false;
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    const range = selection.getRangeAt(index);
+    if (!range || range.collapsed) {
+      continue;
+    }
+
+    const startRoot = findWikipediaArticleRoot(range.startContainer);
+    const endRoot = findWikipediaArticleRoot(range.endContainer);
+    if (!startRoot || startRoot !== endRoot) {
+      return false;
+    }
+
+    hasHandledRange = true;
+  }
+
+  return hasHandledRange;
+}
+
+function findWikipediaArticleRoot(node: Node | null): Element | null {
+  const element = nodeToElement(node);
+  const root = element?.closest(WIKIPEDIA_ARTICLE_SELECTOR) || null;
+  if (!root || root.closest(WIKIPEDIA_EDITABLE_SELECTOR)) {
     return null;
   }
 

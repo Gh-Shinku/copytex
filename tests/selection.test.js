@@ -85,7 +85,7 @@ class NodeStub {
       }
     });
 
-    if (selector === "annotation" || selector === "script") {
+    if (/^[a-z][a-z0-9-]*$/i.test(selector)) {
       return all.filter((node) => node.matches(selector));
     }
 
@@ -245,6 +245,26 @@ function zhihuMathJaxDisplayFormula(latex) {
         el("span", { className: "MathJax_SVG" }, [text("rendered")])
       ])
     ])
+  ]);
+}
+
+function mediaWikiFormula(latex, options = {}) {
+  const wrapped = `{\\displaystyle ${latex}}`;
+  return el("span", {
+    className: options.className || "mwe-math-element mwe-math-element-inline"
+  }, [
+    el("span", { className: "mwe-math-mathml-inline" }, [
+      el("math", { attributes: { alttext: wrapped } }, [
+        annotation(wrapped)
+      ])
+    ]),
+    el("img", {
+      className: "mwe-math-fallback-image-inline mw-invert skin-invert",
+      attributes: {
+        alt: wrapped,
+        "aria-hidden": "true"
+      }
+    })
   ]);
 }
 
@@ -450,6 +470,93 @@ test("serializes Zhihu MathJax display wrappers with Markdown delimiters by defa
   assert.deepEqual(result, {
     handled: true,
     text: "$$\n\\sum_{k=1}^n k\n$$"
+  });
+});
+
+test("serializes Wikipedia article text as Markdown", () => {
+  const editSection = el("span", { className: "mw-editsection" }, [text("[编辑]")]);
+  const reference = el("sup", { className: "reference" }, [text("[1]")]);
+  const root = el("div", { className: "mw-parser-output" }, [
+    el("div", { className: "mw-heading mw-heading2" }, [
+      el("h2", {}, [text("实例说明")]),
+      editSection
+    ]),
+    el("p", {}, [
+      text("给定点"),
+      strong([text("P")]),
+      el("sub", {}, [text("0")]),
+      text("和"),
+      anchor("https://zh.wikipedia.org/wiki/%E7%9B%B4%E7%B7%9A", [text("直线")]),
+      text("。"),
+      reference
+    ])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "## 实例说明\n\n给定点**P**<sub>0</sub>和[直线](https://zh.wikipedia.org/wiki/%E7%9B%B4%E7%B7%9A)。"
+  });
+});
+
+test("serializes Wikipedia definition-list formulas as display Markdown", () => {
+  const root = el("dl", {}, [
+    el("dd", {}, [mediaWikiFormula("\\mathbf {B} (t)=\\mathbf {P} _{0}+t")])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "$$\n\\mathbf {B} (t)=\\mathbf {P} _{0}+t\n$$"
+  });
+});
+
+test("serializes Wikipedia code blocks with MediaWiki language classes", () => {
+  const root = el("div", { className: "mw-highlight mw-highlight-lang-c mw-content-ltr" }, [
+    el("pre", { textContent: "int main(void) {\n  return 0;\n}" }, [
+      text("int main(void) {\n  return 0;\n}")
+    ])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "```c\nint main(void) {\n  return 0;\n}\n```"
+  });
+});
+
+test("serializes Wikipedia figures as text-first captions", () => {
+  const root = el("figure", { attributes: { typeof: "mw:File/Thumb" } }, [
+    el("img", {
+      className: "mw-file-element",
+      attributes: {
+        src: "./local/Wikipedia_files/Bezier_curve.svg.png",
+        alt: "Bezier curve"
+      }
+    }),
+    el("figcaption", {}, [text("三次方贝塞尔曲线")])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "三次方贝塞尔曲线"
   });
 });
 
