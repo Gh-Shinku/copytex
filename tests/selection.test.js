@@ -115,6 +115,35 @@ class TextStub {
   }
 }
 
+class FragmentStub {
+  constructor(children = []) {
+    this.nodeType = 11;
+    this.childNodes = [];
+    this.children = [];
+    this.parentElement = null;
+    this.parentNode = null;
+    this.append(...children);
+  }
+
+  append(...children) {
+    for (const child of children) {
+      const previous = this.childNodes[this.childNodes.length - 1] || null;
+      if (previous) {
+        previous.nextElementSibling = child;
+        child.previousElementSibling = previous;
+      }
+
+      child.parentElement = null;
+      child.parentNode = this;
+      this.childNodes.push(child);
+      if (child.nodeType === 1) {
+        this.children.push(child);
+      }
+    }
+    return this;
+  }
+}
+
 class RangeStub {
   constructor(root, options = {}) {
     this.commonAncestorContainer = root;
@@ -123,10 +152,15 @@ class RangeStub {
     this.endContainer = options.endContainer || root;
     this.endOffset = options.endOffset || 0;
     this.collapsed = Boolean(options.collapsed);
+    this.clonedContents = options.clonedContents || null;
   }
 
   intersectsNode(node) {
     return this.commonAncestorContainer === node || contains(this.commonAncestorContainer, node);
+  }
+
+  cloneContents() {
+    return this.clonedContents || this.commonAncestorContainer;
   }
 }
 
@@ -500,6 +534,90 @@ test("serializes Wikipedia article text as Markdown", () => {
   assert.deepEqual(result, {
     handled: true,
     text: "## 实例说明\n\n给定点**P**<sub>0</sub>和[直线](https://zh.wikipedia.org/wiki/%E7%9B%B4%E7%B7%9A)。"
+  });
+});
+
+test("serializes Wikipedia relative links as absolute Markdown links", () => {
+  const root = el("p", {}, [
+    anchor("/wiki/%E6%9B%B2%E7%BA%BF", [text("曲线")]),
+    text("、"),
+    anchor("#定义", [text("定义")]),
+    text("、"),
+    anchor("./Bernstein_polynomial", [text("Bernstein")]),
+    text("、"),
+    anchor("//upload.wikimedia.org/wikipedia/commons/a/a5/Example.svg", [text("图片")]),
+    text("、"),
+    anchor("https://en.wikipedia.org/wiki/B%C3%A9zier_curve", [text("English")])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula },
+    { baseUrl: "https://zh.wikipedia.org/wiki/%E8%B4%9D%E5%A1%9E%E5%B0%94%E6%9B%B2%E7%BA%BF" }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text:
+      "[曲线](https://zh.wikipedia.org/wiki/%E6%9B%B2%E7%BA%BF)、" +
+      "[定义](https://zh.wikipedia.org/wiki/%E8%B4%9D%E5%A1%9E%E5%B0%94%E6%9B%B2%E7%BA%BF#%E5%AE%9A%E4%B9%89)、" +
+      "[Bernstein](https://zh.wikipedia.org/wiki/Bernstein_polynomial)、" +
+      "[图片](https://upload.wikimedia.org/wikipedia/commons/a/a5/Example.svg)、" +
+      "[English](https://en.wikipedia.org/wiki/B%C3%A9zier_curve)"
+  });
+});
+
+test("serializes partial Wikipedia paragraph fragments as Markdown with absolute links", () => {
+  const fragment = new FragmentStub([
+    text("有时我们可能想要把贝塞尔曲线表示为"),
+    anchor("/wiki/%E5%A4%9A%E9%A0%85%E5%BC%8F", [text("多项式")]),
+    text("，而非比较不直接的"),
+    anchor(
+      "/w/index.php?title=%E4%BC%AF%E6%81%A9%E6%96%AF%E5%9D%A6%E5%A4%9A%E9%A0%85%E5%BC%8F&action=edit&redlink=1",
+      [text("伯恩斯坦多项式")]
+    ),
+    text("。使用"),
+    anchor("/wiki/%E4%BA%8C%E9%A1%B9%E5%BC%8F%E5%AE%9A%E7%90%86", [text("二项式定理")]),
+    text("和贝塞尔曲线的定义，刷新后可以得到：")
+  ]);
+  const article = el("div", { className: "mw-parser-output" }, [
+    el("p", {}, [
+      text("有时我们可能想要把贝塞尔曲线表示为"),
+      anchor("/wiki/%E5%A4%9A%E9%A0%85%E5%BC%8F", [text("多项式")])
+    ])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(article, { clonedContents: fragment })),
+    extractor,
+    { formatFormula },
+    { baseUrl: "https://zh.wikipedia.org/wiki/%E8%B2%9D%E8%8C%B2%E6%9B%B2%E7%B7%9A" }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text:
+      "有时我们可能想要把贝塞尔曲线表示为" +
+      "[多项式](https://zh.wikipedia.org/wiki/%E5%A4%9A%E9%A0%85%E5%BC%8F)，而非比较不直接的" +
+      "[伯恩斯坦多项式](https://zh.wikipedia.org/w/index.php?title=%E4%BC%AF%E6%81%A9%E6%96%AF%E5%9D%A6%E5%A4%9A%E9%A0%85%E5%BC%8F&action=edit&redlink=1)。使用" +
+      "[二项式定理](https://zh.wikipedia.org/wiki/%E4%BA%8C%E9%A1%B9%E5%BC%8F%E5%AE%9A%E7%90%86)" +
+      "和贝塞尔曲线的定义，刷新后可以得到："
+  });
+});
+
+test("serializes dangerous Wikipedia links as plain text", () => {
+  const root = el("p", {}, [
+    anchor("javascript:void(0)", [text("伪链接")])
+  ]);
+  const result = serializeSelectionToMarkdownText(
+    selectionForRange(new RangeStub(root)),
+    extractor,
+    { formatFormula },
+    { baseUrl: "https://zh.wikipedia.org/wiki/Test" }
+  );
+
+  assert.deepEqual(result, {
+    handled: true,
+    text: "伪链接"
   });
 });
 

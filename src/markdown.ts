@@ -33,7 +33,7 @@ export function serializeMarkdown(
   const context = createMarkdownContext(extractor, formatter, options);
   const text =
     node.nodeType === DOCUMENT_FRAGMENT_NODE
-      ? serializeBlockChildren(node, context)
+      ? serializeDocumentFragment(node, context)
       : serializeBlockNode(node, context);
 
   return cleanMarkdown(text);
@@ -76,6 +76,12 @@ function serializeBlockChildren(node: Node, context: MarkdownContext): string {
   }
 
   return blocks.join("\n\n");
+}
+
+function serializeDocumentFragment(node: Node, context: MarkdownContext): string {
+  return hasBlockChildren(node)
+    ? serializeBlockChildren(node, context)
+    : cleanParagraphText(serializeInlineChildren(node, context));
 }
 
 function serializeBlockNode(node: Node | null, context: MarkdownContext): string {
@@ -226,7 +232,7 @@ function serializeInlineNode(node: Node | null, context: MarkdownContext): strin
     if (isIgnoredLink(node, href)) {
       return text;
     }
-    const normalizedHref = normalizeLinkHref(href);
+    const normalizedHref = normalizeLinkHref(href, context);
     return normalizedHref ? `[${text}](${normalizedHref})` : text;
   }
 
@@ -394,12 +400,12 @@ function formatInlineCode(text: unknown): string {
   return `${fence}${value}${fence}`;
 }
 
-function hasBlockChildren(node: Element): boolean {
+function hasBlockChildren(node: Node): boolean {
   return children(node).some(isBlockElement);
 }
 
 function isBlockElement(node: Node): boolean {
-  return /^(blockquote|div|h[1-6]|hr|ol|p|pre|table|ul)$/.test(tagName(node));
+  return /^(blockquote|div|dl|dd|dt|figure|h[1-6]|hr|li|ol|p|pre|table|ul)$/.test(tagName(node));
 }
 
 function cleanMarkdown(text: unknown): string {
@@ -472,13 +478,23 @@ function isZhidaUrl(value: unknown): boolean {
   }
 }
 
-function normalizeLinkHref(value: unknown): string {
+function normalizeLinkHref(value: unknown, context: MarkdownContext): string {
   const href = String(value || "").trim();
   if (!href) {
     return "";
   }
 
-  return unwrapZhihuRedirectUrl(href) || href;
+  const unwrapped = unwrapZhihuRedirectUrl(href);
+  const normalized = unwrapped || href;
+  if (isDangerousHref(normalized)) {
+    return "";
+  }
+
+  if (isWikipediaBaseUrl(context.options.baseUrl)) {
+    return absoluteUrl(normalized, context.options.baseUrl);
+  }
+
+  return normalized;
 }
 
 function unwrapZhihuRedirectUrl(value: string): string {
@@ -490,6 +506,37 @@ function unwrapZhihuRedirectUrl(value: string): string {
     }
 
     return url.searchParams.get("target") || "";
+  } catch (_error) {
+    return "";
+  }
+}
+
+function isDangerousHref(value: string): boolean {
+  return /^(?:javascript|data|vbscript):/i.test(value.trim());
+}
+
+function isWikipediaBaseUrl(value: unknown): value is string {
+  const baseUrl = String(value || "").trim();
+  if (!baseUrl) {
+    return false;
+  }
+
+  try {
+    const url = new URL(baseUrl);
+    return isWikipediaHost(url.hostname);
+  } catch (_error) {
+    return false;
+  }
+}
+
+function isWikipediaHost(hostname: string): boolean {
+  return hostname === "wikipedia.org" || hostname.endsWith(".wikipedia.org");
+}
+
+function absoluteUrl(value: string, baseUrl: string): string {
+  const normalized = value.startsWith("//") ? `https:${value}` : value;
+  try {
+    return new URL(normalized, baseUrl).href;
   } catch (_error) {
     return "";
   }

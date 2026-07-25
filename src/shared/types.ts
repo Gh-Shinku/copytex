@@ -2,6 +2,7 @@ export type OutputFormat = "markdown" | "latex";
 
 export interface FormatOptions {
   outputFormat?: OutputFormat;
+  baseUrl?: string;
 }
 
 export interface FormulaExtractionResult {

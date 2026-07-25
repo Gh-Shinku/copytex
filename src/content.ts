@@ -175,7 +175,7 @@ function initCopyTeXContentScript(): void {
       selection,
       extractorApi,
       selectionSerializerApi,
-      { outputFormat }
+      { outputFormat, baseUrl: location.href }
     );
   }
 
@@ -190,7 +190,7 @@ function initCopyTeXContentScript(): void {
       selection,
       extractorApi,
       selectionSerializerApi,
-      { outputFormat }
+      { outputFormat, baseUrl: location.href }
     );
   }
 
