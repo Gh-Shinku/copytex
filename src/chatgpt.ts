@@ -2,10 +2,12 @@ import type { FormatOptions, FormulaExtractionResult } from "./shared/types";
 import { serializeMarkdownChildren } from "./markdown";
 
 export const ASSISTANT_TURN_SELECTOR =
-  'section[data-testid^="conversation-turn-"][data-turn="assistant"]';
+  'section[data-testid^="conversation-turn-"]';
 export const ASSISTANT_MARKDOWN_SELECTOR =
   '[data-message-author-role="assistant"] .markdown';
 export const NATIVE_COPY_SELECTOR = 'button[data-testid="copy-turn-action-button"]';
+const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
+const ACTION_GROUP_SELECTOR = '[role="group"]';
 export const COPYTEX_RESPONSE_COPY_ATTRIBUTE = "data-copytex-response-copy";
 const COPYTEX_NATIVE_INJECTED_ATTRIBUTE = "data-copytex-response-copy-injected";
 const ELEMENT_NODE = 1;
@@ -50,44 +52,40 @@ export function injectResponseCopyButtons(
   }
 
   let count = 0;
-  const nativeButtons = Array.from(root.querySelectorAll(NATIVE_COPY_SELECTOR));
-  for (const nativeButton of nativeButtons) {
-    if (!isInjectableNativeCopyButton(nativeButton)) {
+  const turns = querySelectorAllWithSelf(root, ASSISTANT_TURN_SELECTOR).filter(isAssistantTurn);
+  for (const turn of turns) {
+    if (querySelector(turn, `[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`)) {
       continue;
     }
 
-    const copyTeXButton = createResponseCopyButton(nativeButton, onClick);
-    nativeButton.setAttribute(COPYTEX_NATIVE_INJECTED_ATTRIBUTE, "true");
-    nativeButton.insertAdjacentElement("afterend", copyTeXButton);
+    const nativeButton = findNativeCopyButton(turn);
+    const copyTeXButton = createResponseCopyButton(nativeButton, turn, onClick);
+    if (!copyTeXButton || !insertResponseCopyButton(copyTeXButton, nativeButton, turn)) {
+      continue;
+    }
+
+    nativeButton?.setAttribute(COPYTEX_NATIVE_INJECTED_ATTRIBUTE, "true");
     count += 1;
   }
 
   return count;
 }
 
-function isInjectableNativeCopyButton(button: Element | null): boolean {
-  if (!button || typeof button.getAttribute !== "function") {
-    return false;
-  }
-
-  if (button.getAttribute(COPYTEX_RESPONSE_COPY_ATTRIBUTE) === "true") {
-    return false;
-  }
-
-  if (button.getAttribute(COPYTEX_NATIVE_INJECTED_ATTRIBUTE) === "true") {
-    return false;
-  }
-
-  return Boolean(closest(button, ASSISTANT_TURN_SELECTOR));
-}
-
 function createResponseCopyButton(
-  nativeButton: Element,
+  nativeButton: Element | null,
+  turn: Element,
   onClick?: (nativeButton: Element, copyTeXButton: Element, turn: Element | null) => void
-): Element {
-  const button = nativeButton.cloneNode(false) as Element;
+): Element | null {
+  const button = nativeButton
+    ? (nativeButton.cloneNode(false) as Element)
+    : createButtonElement(turn);
+  if (!button) {
+    return null;
+  }
+
   button.removeAttribute("data-testid");
   button.removeAttribute("data-state");
+  button.setAttribute("type", "button");
   button.setAttribute(COPYTEX_RESPONSE_COPY_ATTRIBUTE, "true");
   button.setAttribute("aria-label", "Copy message with CopyTeX");
   button.setAttribute("title", "Copy message with CopyTeX");
@@ -99,7 +97,7 @@ function createResponseCopyButton(
     event.stopPropagation();
 
     if (typeof onClick === "function") {
-      onClick(nativeButton, button, closest(nativeButton, ASSISTANT_TURN_SELECTOR));
+      onClick(nativeButton || button, button, findChatGptAssistantTurn(button) || turn);
     }
   });
 
@@ -112,7 +110,7 @@ export function serializeChatGptTurnToMarkdown(
   formatter: FormulaFormatter,
   options?: FormatOptions
 ): { ok: boolean; text: string; error?: string } {
-  const messageRoot = querySelector(turn, ASSISTANT_MARKDOWN_SELECTOR);
+  const messageRoot = findChatGptMessageRoot(turn);
   if (!messageRoot) {
     return { ok: false, text: "", error: "No response content found" };
   }
@@ -122,6 +120,77 @@ export function serializeChatGptTurnToMarkdown(
   return text
     ? { ok: true, text }
     : { ok: false, text: "", error: "No response content found" };
+}
+
+function findNativeCopyButton(turn: ParentNode): Element | null {
+  return querySelector(turn, NATIVE_COPY_SELECTOR);
+}
+
+function insertResponseCopyButton(
+  copyTeXButton: Element,
+  nativeButton: Element | null,
+  turn: ParentNode
+): boolean {
+  if (nativeButton && typeof nativeButton.insertAdjacentElement === "function") {
+    nativeButton.insertAdjacentElement("afterend", copyTeXButton);
+    return true;
+  }
+
+  const actionGroup = querySelector(turn, ACTION_GROUP_SELECTOR);
+  if (actionGroup && typeof actionGroup.appendChild === "function") {
+    actionGroup.appendChild(copyTeXButton);
+    return true;
+  }
+
+  const messageRoot = findChatGptMessageRoot(turn);
+  if (messageRoot && typeof messageRoot.insertAdjacentElement === "function") {
+    messageRoot.insertAdjacentElement("afterend", copyTeXButton);
+    return true;
+  }
+
+  return false;
+}
+
+function createButtonElement(anchor: Element): Element | null {
+  const documentRef =
+    (anchor as { ownerDocument?: Document | null }).ownerDocument ||
+    (typeof document !== "undefined" ? document : null);
+  if (!documentRef || typeof documentRef.createElement !== "function") {
+    return null;
+  }
+
+  const button = documentRef.createElement("button");
+  button.className = "text-token-text-secondary hover:bg-token-surface-hover rounded-lg";
+  return button;
+}
+
+function findChatGptAssistantTurn(element: unknown): Element | null {
+  const turn = closest(element, ASSISTANT_TURN_SELECTOR);
+  return isAssistantTurn(turn) ? turn : null;
+}
+
+function findChatGptMessageRoot(turn: ParentNode): Element | null {
+  return (
+    querySelector(turn, ASSISTANT_MARKDOWN_SELECTOR) ||
+    querySelector(turn, ".markdown") ||
+    querySelector(turn, ASSISTANT_MESSAGE_SELECTOR)
+  );
+}
+
+function isAssistantTurn(turn: unknown): turn is Element {
+  if (!isElementLike(turn) || tagName(turn) !== "section") {
+    return false;
+  }
+
+  if (!String(getAttribute(turn, "data-testid")).startsWith("conversation-turn-")) {
+    return false;
+  }
+
+  if (getAttribute(turn, "data-turn") === "assistant") {
+    return true;
+  }
+
+  return Boolean(querySelector(turn, ASSISTANT_MESSAGE_SELECTOR));
 }
 
 function closest(element: unknown, selector: string): Element | null {
@@ -156,9 +225,12 @@ function matches(element: unknown, selector: string): boolean {
   if (selector === ASSISTANT_TURN_SELECTOR) {
     return (
       tagName(element) === "section" &&
-      String(getAttribute(element, "data-testid")).startsWith("conversation-turn-") &&
-      getAttribute(element, "data-turn") === "assistant"
+      String(getAttribute(element, "data-testid")).startsWith("conversation-turn-")
     );
+  }
+
+  if (selector === ASSISTANT_MESSAGE_SELECTOR) {
+    return getAttribute(element, "data-message-author-role") === "assistant";
   }
 
   return false;
@@ -177,6 +249,11 @@ function querySelector(root: unknown, selector: string): Element | null {
   }
 
   return querySelectorAll(root, selector)[0] || null;
+}
+
+function querySelectorAllWithSelf(root: unknown, selector: string): Element[] {
+  const matches = isElementLike(root) && matchesSelector(root, selector) ? [root] : [];
+  return matches.concat(querySelectorAll(root, selector));
 }
 
 function querySelectorAll(root: unknown, selector: string): Element[] {
@@ -203,15 +280,38 @@ function matchesSelector(node: Node, selector: string): node is Element {
   }
 
   if (selector === ASSISTANT_MARKDOWN_SELECTOR) {
-    return hasClass(node, "markdown") && Boolean(closest(node, '[data-message-author-role="assistant"]'));
+    return hasClass(node, "markdown") && Boolean(closest(node, ASSISTANT_MESSAGE_SELECTOR));
+  }
+
+  if (selector === NATIVE_COPY_SELECTOR) {
+    return tagName(node) === "button" && getAttribute(node, "data-testid") === "copy-turn-action-button";
+  }
+
+  if (selector === ASSISTANT_TURN_SELECTOR) {
+    return (
+      tagName(node) === "section" &&
+      String(getAttribute(node, "data-testid")).startsWith("conversation-turn-")
+    );
+  }
+
+  if (selector === ACTION_GROUP_SELECTOR) {
+    return getAttribute(node, "role") === "group";
+  }
+
+  if (selector === `[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`) {
+    return getAttribute(node, COPYTEX_RESPONSE_COPY_ATTRIBUTE) === "true";
   }
 
   if (selector === "code" || selector === "tr") {
     return tagName(node) === selector;
   }
 
-  if (selector === '[data-message-author-role="assistant"]') {
+  if (selector === ASSISTANT_MESSAGE_SELECTOR) {
     return getAttribute(node, "data-message-author-role") === "assistant";
+  }
+
+  if (selector.startsWith(".")) {
+    return hasClass(node, selector.slice(1));
   }
 
   return false;

@@ -6,6 +6,10 @@ const KATEX_DISPLAY_SELECTORS = [
   ".ds-markdown-math-display",
   ".ds-markdown-math-block"
 ];
+const CHATGPT_MATH_SOURCE_SELECTORS = [
+  '[role="math"][data-math-source]',
+  '[data-client-katex-layout][data-math-source]'
+];
 const ZHIHU_MATH_SELECTOR = ".ztext-math";
 const ZHIHU_DISPLAY_SELECTORS = [
   ".MathJax_SVG_Display",
@@ -47,6 +51,15 @@ export function extractLatexFromElement(target: unknown): FormulaExtractionResul
     };
   }
 
+  const chatGptMathSourceLatex = findChatGptMathSourceLatex(formulaElement);
+  if (chatGptMathSourceLatex) {
+    return {
+      latex: chatGptMathSourceLatex,
+      displayMode: isChatGptMathSourceDisplayFormula(formulaElement),
+      source: "chatgpt-data-math-source"
+    };
+  }
+
   const annotationLatex = findAnnotationLatex(formulaElement);
   if (annotationLatex) {
     return {
@@ -77,6 +90,7 @@ export function findFormulaElement(target: unknown): Element | null {
   const inline = closest(target, KATEX_SELECTOR);
   const zhihu = closest(target, ZHIHU_MATH_SELECTOR);
   const mediawiki = closest(target, MEDIAWIKI_MATH_SELECTOR);
+  const chatgptMathSource = closestAny(target, CHATGPT_MATH_SOURCE_SELECTORS);
 
   if (zhihu) {
     return zhihu;
@@ -84,6 +98,10 @@ export function findFormulaElement(target: unknown): Element | null {
 
   if (mediawiki) {
     return mediawiki;
+  }
+
+  if (chatgptMathSource) {
+    return chatgptMathSource;
   }
 
   if (display && (!inline || contains(display, inline))) {
@@ -98,6 +116,7 @@ export function isDisplayFormula(element: unknown): boolean {
     Boolean(closestAny(element, KATEX_DISPLAY_SELECTORS)) ||
     isZhihuDisplayFormula(element) ||
     isMediaWikiDisplayFormula(element) ||
+    isChatGptMathSourceDisplayFormula(element) ||
     isDeepSeekDisplayFormula(element)
   );
 }
@@ -152,6 +171,31 @@ function cleanMediaWikiLatex(value: unknown): string {
   }
 
   return cleanLatex(latex.replace(/^\\(?:displaystyle|textstyle)\s+/, ""));
+}
+
+function findChatGptMathSourceLatex(root: unknown): string | null {
+  const formula = closestAny(root, CHATGPT_MATH_SOURCE_SELECTORS);
+  if (!formula) {
+    return null;
+  }
+
+  const source =
+    cleanLatex(decodeHtmlAttribute(getAttribute(formula, "data-math-source"))) ||
+    cleanLatex(decodeHtmlAttribute(getAttribute(formula, "aria-label")));
+  return source || null;
+}
+
+function isChatGptMathSourceDisplayFormula(element: unknown): boolean {
+  const formula = closestAny(element, CHATGPT_MATH_SOURCE_SELECTORS);
+  if (!formula) {
+    return false;
+  }
+
+  if (/\bdisplay\s*:\s*block\b/i.test(getAttribute(formula, "style"))) {
+    return true;
+  }
+
+  return hasDescendantMatchingAny(formula, [".katex-display"]);
 }
 
 function isZhihuDisplayFormula(element: unknown): boolean {
@@ -449,6 +493,17 @@ function matches(element: unknown, selector: string): boolean {
 
   if (selector === "script") {
     return String(element.tagName || "").toLowerCase() === "script";
+  }
+
+  if (selector === '[role="math"][data-math-source]') {
+    return getAttribute(element, "role") === "math" && Boolean(getAttribute(element, "data-math-source"));
+  }
+
+  if (selector === '[data-client-katex-layout][data-math-source]') {
+    return Boolean(
+      getAttribute(element, "data-client-katex-layout") ||
+        getAttribute(element, "data-math-source")
+    ) && Boolean(getAttribute(element, "data-math-source"));
   }
 
   if (selector.startsWith(".")) {

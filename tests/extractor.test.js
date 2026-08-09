@@ -52,6 +52,14 @@ class NodeStub {
   }
 
   matches(selector) {
+    if (selector === '[role="math"][data-math-source]') {
+      return this.getAttribute("role") === "math" && Boolean(this.getAttribute("data-math-source"));
+    }
+
+    if (selector === '[data-client-katex-layout][data-math-source]') {
+      return Boolean(this.getAttribute("data-math-source"));
+    }
+
     if (selector.startsWith(".")) {
       return this.className.split(/\s+/).includes(selector.slice(1));
     }
@@ -134,6 +142,46 @@ test("marks formulas inside katex-display as display mode", () => {
   assert.equal(findFormulaElement(annotation), display);
   assert.equal(isDisplayFormula(annotation), true);
   assert.equal(extractLatexFromElement(annotation).displayMode, true);
+});
+
+test("extracts ChatGPT math source wrappers around KaTeX", () => {
+  const katex = node("span", { className: "katex" }, [
+    node("span", { className: "katex-html", textContent: "rendered" })
+  ]);
+  const wrapper = node("span", {
+    attributes: {
+      role: "math",
+      "data-math-source": "r_\\theta(x,y)",
+      "data-client-katex-layout": ""
+    }
+  }, [katex]);
+
+  assert.equal(findFormulaElement(katex), wrapper);
+  assert.deepEqual(extractLatexFromElement(katex), {
+    latex: "r_\\theta(x,y)",
+    displayMode: false,
+    source: "chatgpt-data-math-source"
+  });
+});
+
+test("marks ChatGPT block math source wrappers as display mode", () => {
+  const katex = node("span", { className: "katex" });
+  const display = node("span", { className: "katex-display" }, [katex]);
+  const wrapper = node("span", {
+    attributes: {
+      role: "math",
+      "data-math-source": "L=-\\log\\sigma(x)",
+      style: "display:block"
+    }
+  }, [display]);
+
+  assert.equal(findFormulaElement(katex), wrapper);
+  assert.equal(isDisplayFormula(katex), true);
+  assert.deepEqual(extractLatexFromElement(katex), {
+    latex: "L=-\\log\\sigma(x)",
+    displayMode: true,
+    source: "chatgpt-data-math-source"
+  });
 });
 
 test("marks formulas inside DeepSeek display math wrappers as display mode", () => {

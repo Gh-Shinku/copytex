@@ -34,6 +34,11 @@ class ElementStub {
     return this;
   }
 
+  appendChild(child) {
+    this.append(child);
+    return child;
+  }
+
   contains(target) {
     let cursor = target;
     while (cursor) {
@@ -99,6 +104,18 @@ class ElementStub {
   }
 
   matches(selector) {
+    if (selector === ".markdown") {
+      return hasClass(this, "markdown");
+    }
+
+    if (selector === '[role="math"][data-math-source]') {
+      return this.getAttribute("role") === "math" && Boolean(this.getAttribute("data-math-source"));
+    }
+
+    if (selector === '[data-client-katex-layout][data-math-source]') {
+      return Boolean(this.getAttribute("data-math-source"));
+    }
+
     const attributeMatch = selector.match(/^\[([^=]+)="([^"]+)"\]$/);
     if (attributeMatch) {
       return this.getAttribute(attributeMatch[1]) === attributeMatch[2];
@@ -121,6 +138,17 @@ class ElementStub {
         this.getAttribute("data-testid").startsWith("conversation-turn-") &&
         this.getAttribute("data-turn") === "assistant"
       );
+    }
+
+    if (selector === 'section[data-testid^="conversation-turn-"]') {
+      return (
+        this.tagName.toLowerCase() === "section" &&
+        this.getAttribute("data-testid").startsWith("conversation-turn-")
+      );
+    }
+
+    if (selector === '[role="group"]') {
+      return this.getAttribute("role") === "group";
     }
 
     if (selector.startsWith(".")) {
@@ -217,6 +245,23 @@ function assistantTurnWithMarkdown(children) {
   ]);
 }
 
+function latestAssistantTurnWithMarkdown(children) {
+  return el("section", {
+    "data-testid": "conversation-turn-1"
+  }, [
+    el("div", { "data-message-author-role": "assistant" }, [
+      el("div", { className: "markdown prose" }, children)
+    ]),
+    el("div", { role: "group" }, [
+      el("button", {
+        "data-testid": "copy-turn-action-button",
+        "aria-label": "Copy response",
+        "data-state": "closed"
+      })
+    ])
+  ]);
+}
+
 function inlineFormula(latex) {
   return el("span", { className: "katex" }, [
     el("span", { className: "katex-mathml" }, [
@@ -231,6 +276,22 @@ function inlineFormula(latex) {
 
 function displayFormula(latex) {
   return el("span", { className: "katex-display" }, [inlineFormula(latex)]);
+}
+
+function chatGptMathSourceFormula(latex, displayMode = false) {
+  const katex = el("span", { className: "katex" }, [
+    el("span", { className: "katex-html", "aria-hidden": "true" }, [text("rendered")])
+  ]);
+  const content = displayMode
+    ? [el("span", { className: "katex-display" }, [katex])]
+    : [katex];
+
+  return el("span", {
+    role: "math",
+    "data-math-source": latex,
+    "data-client-katex-layout": "",
+    style: displayMode ? "display:block" : ""
+  }, content);
 }
 
 test("detects ChatGPT hosts", () => {
@@ -261,6 +322,24 @@ test("does not inject duplicate response copy buttons", () => {
   assert.equal(injectResponseCopyButtons(root, () => {}), 1);
   assert.equal(injectResponseCopyButtons(root, () => {}), 0);
   assert.equal(root.children[0].children[0].children.length, 2);
+});
+
+test("injects response copy buttons into latest ChatGPT assistant turns without data-turn", () => {
+  const root = new ElementStub("main", {}, [
+    latestAssistantTurnWithMarkdown([el("p", {}, [text("Assistant")])])
+  ]);
+
+  assert.equal(injectResponseCopyButtons(root, () => {}), 1);
+  assert.equal(root.querySelectorAll(`[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`).length, 1);
+});
+
+test("reinjects response copy buttons when native marker remains but CopyTeX button is missing", () => {
+  const root = new ElementStub("main", {}, [turn("assistant")]);
+  const nativeButton = root.children[0].children[0].children[0];
+  nativeButton.setAttribute("data-copytex-response-copy-injected", "true");
+
+  assert.equal(injectResponseCopyButtons(root, () => {}), 1);
+  assert.equal(root.querySelectorAll(`[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`).length, 1);
 });
 
 test("response copy button calls handler without clicking the native button", () => {
@@ -350,6 +429,26 @@ test("serializes ChatGPT KaTeX formulas using Markdown output", () => {
   assert.deepEqual(result, {
     ok: true,
     text: "Inline $E = mc^2$.\n\n$$\n\\int_0^1 x\\,dx\n$$"
+  });
+});
+
+test("serializes latest ChatGPT data-math-source formulas using Markdown output", () => {
+  const turnNode = latestAssistantTurnWithMarkdown([
+    el("p", {}, [
+      text("Score "),
+      chatGptMathSourceFormula("r_\\theta(x,y)"),
+      text(".")
+    ]),
+    chatGptMathSourceFormula("L=-\\log\\sigma(r_\\theta(x,y_w)-r_\\theta(x,y_l))", true)
+  ]);
+
+  const result = serializeChatGptTurnToMarkdown(turnNode, extractor, selectionSerializer);
+
+  assert.deepEqual(result, {
+    ok: true,
+    text:
+      "Score $r_\\theta(x,y)$.\n\n" +
+      "$$\nL=-\\log\\sigma(r_\\theta(x,y_w)-r_\\theta(x,y_l))\n$$"
   });
 });
 
