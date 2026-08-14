@@ -7,7 +7,6 @@ export const ASSISTANT_MARKDOWN_SELECTOR =
   '[data-message-author-role="assistant"] .markdown';
 export const NATIVE_COPY_SELECTOR = 'button[data-testid="copy-turn-action-button"]';
 const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
-const ACTION_GROUP_SELECTOR = '[role="group"]';
 export const COPYTEX_RESPONSE_COPY_ATTRIBUTE = "data-copytex-response-copy";
 const COPYTEX_NATIVE_INJECTED_ATTRIBUTE = "data-copytex-response-copy-injected";
 const ELEMENT_NODE = 1;
@@ -54,17 +53,26 @@ export function injectResponseCopyButtons(
   let count = 0;
   const turns = querySelectorAllWithSelf(root, ASSISTANT_TURN_SELECTOR).filter(isAssistantTurn);
   for (const turn of turns) {
-    if (querySelector(turn, `[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`)) {
-      continue;
-    }
-
     const nativeButton = findNativeCopyButton(turn);
-    const copyTeXButton = createResponseCopyButton(nativeButton, turn, onClick);
-    if (!copyTeXButton || !insertResponseCopyButton(copyTeXButton, nativeButton, turn)) {
+    if (!nativeButton) {
       continue;
     }
 
-    nativeButton?.setAttribute(COPYTEX_NATIVE_INJECTED_ATTRIBUTE, "true");
+    const existingButton = findResponseCopyButton(turn);
+    if (existingButton) {
+      if (isInsertedAfterNativeButton(existingButton, nativeButton)) {
+        continue;
+      }
+
+      removeElement(existingButton);
+    }
+
+    const copyTeXButton = createResponseCopyButton(nativeButton, turn, onClick);
+    if (!copyTeXButton || !insertResponseCopyButton(copyTeXButton, nativeButton)) {
+      continue;
+    }
+
+    nativeButton.setAttribute(COPYTEX_NATIVE_INJECTED_ATTRIBUTE, "true");
     count += 1;
   }
 
@@ -72,13 +80,11 @@ export function injectResponseCopyButtons(
 }
 
 function createResponseCopyButton(
-  nativeButton: Element | null,
+  nativeButton: Element,
   turn: Element,
   onClick?: (nativeButton: Element, copyTeXButton: Element, turn: Element | null) => void
 ): Element | null {
-  const button = nativeButton
-    ? (nativeButton.cloneNode(false) as Element)
-    : createButtonElement(turn);
+  const button = nativeButton.cloneNode(false) as Element;
   if (!button) {
     return null;
   }
@@ -97,7 +103,7 @@ function createResponseCopyButton(
     event.stopPropagation();
 
     if (typeof onClick === "function") {
-      onClick(nativeButton || button, button, findChatGptAssistantTurn(button) || turn);
+      onClick(nativeButton, button, findChatGptAssistantTurn(button) || turn);
     }
   });
 
@@ -126,42 +132,47 @@ function findNativeCopyButton(turn: ParentNode): Element | null {
   return querySelector(turn, NATIVE_COPY_SELECTOR);
 }
 
-function insertResponseCopyButton(
-  copyTeXButton: Element,
-  nativeButton: Element | null,
-  turn: ParentNode
-): boolean {
-  if (nativeButton && typeof nativeButton.insertAdjacentElement === "function") {
+function findResponseCopyButton(turn: ParentNode): Element | null {
+  return querySelector(turn, `[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`);
+}
+
+function insertResponseCopyButton(copyTeXButton: Element, nativeButton: Element): boolean {
+  if (typeof nativeButton.insertAdjacentElement === "function") {
     nativeButton.insertAdjacentElement("afterend", copyTeXButton);
-    return true;
-  }
-
-  const actionGroup = querySelector(turn, ACTION_GROUP_SELECTOR);
-  if (actionGroup && typeof actionGroup.appendChild === "function") {
-    actionGroup.appendChild(copyTeXButton);
-    return true;
-  }
-
-  const messageRoot = findChatGptMessageRoot(turn);
-  if (messageRoot && typeof messageRoot.insertAdjacentElement === "function") {
-    messageRoot.insertAdjacentElement("afterend", copyTeXButton);
     return true;
   }
 
   return false;
 }
 
-function createButtonElement(anchor: Element): Element | null {
-  const documentRef =
-    (anchor as { ownerDocument?: Document | null }).ownerDocument ||
-    (typeof document !== "undefined" ? document : null);
-  if (!documentRef || typeof documentRef.createElement !== "function") {
-    return null;
+function isInsertedAfterNativeButton(button: Element, nativeButton: Element): boolean {
+  return previousElementSibling(button) === nativeButton;
+}
+
+function previousElementSibling(element: Element): Element | null {
+  const previous = (element as { previousElementSibling?: Element | null }).previousElementSibling;
+  if (previous) {
+    return previous;
   }
 
-  const button = documentRef.createElement("button");
-  button.className = "text-token-text-secondary hover:bg-token-surface-hover rounded-lg";
-  return button;
+  const parent = (element as { parentElement?: { children?: ArrayLike<Element> } | null })
+    .parentElement;
+  const siblings = parent?.children ? Array.from(parent.children) : [];
+  const index = siblings.indexOf(element);
+
+  return index > 0 ? siblings[index - 1] : null;
+}
+
+function removeElement(element: Element): void {
+  if (typeof element.remove === "function") {
+    element.remove();
+    return;
+  }
+
+  const parent = element.parentNode;
+  if (parent && typeof parent.removeChild === "function") {
+    parent.removeChild(element);
+  }
 }
 
 function findChatGptAssistantTurn(element: unknown): Element | null {
@@ -292,10 +303,6 @@ function matchesSelector(node: Node, selector: string): node is Element {
       tagName(node) === "section" &&
       String(getAttribute(node, "data-testid")).startsWith("conversation-turn-")
     );
-  }
-
-  if (selector === ACTION_GROUP_SELECTOR) {
-    return getAttribute(node, "role") === "group";
   }
 
   if (selector === `[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`) {

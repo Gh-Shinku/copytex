@@ -39,6 +39,22 @@ class ElementStub {
     return child;
   }
 
+  remove() {
+    if (this.parentElement) {
+      this.parentElement.removeChild(this);
+    }
+  }
+
+  removeChild(child) {
+    const index = this.children.indexOf(child);
+    if (index >= 0) {
+      this.children.splice(index, 1);
+      child.parentElement = null;
+      child.parentNode = null;
+    }
+    return child;
+  }
+
   contains(target) {
     let cursor = target;
     while (cursor) {
@@ -262,6 +278,24 @@ function latestAssistantTurnWithMarkdown(children) {
   ]);
 }
 
+function latestAssistantTurnBeforeActions(children) {
+  return el("section", {
+    "data-testid": "conversation-turn-1"
+  }, [
+    el("div", { "data-message-author-role": "assistant" }, [
+      el("div", { className: "markdown prose" }, children)
+    ])
+  ]);
+}
+
+function misplacedResponseCopyButton() {
+  return el("button", {
+    [COPYTEX_RESPONSE_COPY_ATTRIBUTE]: "true"
+  }, [
+    el("span", { className: "copytex-response-copy-label" }, [text("TeX")])
+  ]);
+}
+
 function inlineFormula(latex) {
   return el("span", { className: "katex" }, [
     el("span", { className: "katex-mathml" }, [
@@ -333,6 +367,15 @@ test("injects response copy buttons into latest ChatGPT assistant turns without 
   assert.equal(root.querySelectorAll(`[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`).length, 1);
 });
 
+test("waits for the native ChatGPT response copy button before injecting", () => {
+  const root = new ElementStub("main", {}, [
+    latestAssistantTurnBeforeActions([el("p", {}, [text("Assistant")])])
+  ]);
+
+  assert.equal(injectResponseCopyButtons(root, () => {}), 0);
+  assert.equal(root.querySelectorAll(`[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`).length, 0);
+});
+
 test("reinjects response copy buttons when native marker remains but CopyTeX button is missing", () => {
   const root = new ElementStub("main", {}, [turn("assistant")]);
   const nativeButton = root.children[0].children[0].children[0];
@@ -340,6 +383,23 @@ test("reinjects response copy buttons when native marker remains but CopyTeX but
 
   assert.equal(injectResponseCopyButtons(root, () => {}), 1);
   assert.equal(root.querySelectorAll(`[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`).length, 1);
+});
+
+test("repairs misplaced response copy buttons after ChatGPT action bar changes", () => {
+  const misplacedButton = misplacedResponseCopyButton();
+  const turnNode = latestAssistantTurnWithMarkdown([el("p", {}, [text("Assistant")])]);
+  turnNode.children.splice(0, 0, misplacedButton);
+  misplacedButton.parentElement = turnNode;
+  misplacedButton.parentNode = turnNode;
+  const root = new ElementStub("main", {}, [turnNode]);
+
+  assert.equal(injectResponseCopyButtons(root, () => {}), 1);
+
+  const copyTeXButtons = root.querySelectorAll(`[${COPYTEX_RESPONSE_COPY_ATTRIBUTE}="true"]`);
+  const actionButtons = turnNode.querySelectorAll('[role="group"]')[0].children;
+  assert.equal(copyTeXButtons.length, 1);
+  assert.equal(actionButtons[0].getAttribute("data-testid"), "copy-turn-action-button");
+  assert.equal(actionButtons[1].getAttribute(COPYTEX_RESPONSE_COPY_ATTRIBUTE), "true");
 });
 
 test("response copy button calls handler without clicking the native button", () => {
